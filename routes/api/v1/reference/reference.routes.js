@@ -40,11 +40,42 @@ export default async function (fastify, opts) {
 			}
     	})
 
-
 	fastify.get('/:id', async (request, reply) => {
 		const refs = await getReference(fastify.mariadb, request.params.id);
 		reply.send(refs);
 	})
 
+	//TODO: This is a test stub that writes to a dummy table.
+    fastify.post(
+		'/',
+		{
+		  schema: {
+			body: {
+			  type: 'object',
+			  properties: {
+				reference: {
+				  type: "object",
+				  properties: {
+					name: { type: 'string' },
+					notes: { type: "string"}
+				  },
+				  required: ["name", "notes"]
+				}
+			  },
+			  required: ["reference"]
+			}
+		  }
+		},
+		async (req, res) => {
+		  fastify.log.info("reference POST")
+		  fastify.log.trace(req.body)
+  
+		  if (await createReference(fastify.mariadb, req.body.reference, fastify)) {
+			  res.send('success');
+		  } else {
+			  res.send('failure');
+		  }
+	  })
+  
 }
 

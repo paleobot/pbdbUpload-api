@@ -1,13 +1,8 @@
 import {getReferences, getReference, createReference} from './reference.model.js'
 
 export default async function (fastify, opts) {
-    /*
-    fastify.get('/', async function (request, reply) {
-      return { reference: true }
-    })
-    */
 
-    fastify.get(
+	fastify.get(
     	'/',
         {
 			preHandler: fastify.auth([
@@ -17,7 +12,6 @@ export default async function (fastify, opts) {
 			})
         }, 
 		async (request, reply) => {
-			//return {references: [{name: "dummy"}]}
 			fastify.log.info("get handler");
 
 			const aCookieValue = request.cookies.session_id
@@ -29,8 +23,6 @@ export default async function (fastify, opts) {
  	         fastify.log.trace(request.query)
 
 			const refs = await getReferences(fastify.mariadb, limit, offset, fastify);
-			//logger.silly(refs)
-			//reply.send(refs);
 			fastify.log.trace(refs)
 			return {
 				data: {

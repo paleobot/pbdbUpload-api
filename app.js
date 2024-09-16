@@ -199,6 +199,6 @@ export default async function (fastify, opts) {
   	fastify.register(AutoLoad, {
     	dir: path.join(__dirname, 'routes'),
     	options: Object.assign({}, opts),
-		ignorePattern: /^.*model\.js$/
+		ignorePattern: /^.*(model|schema)\.js$/
   	})
 }

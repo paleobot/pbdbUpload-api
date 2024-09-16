@@ -1,4 +1,5 @@
 import {getReferences, getReference, createReference} from './reference.model.js'
+import {schema} from './reference.schema.js'
 
 export default async function (fastify, opts) {
 
@@ -41,7 +42,7 @@ export default async function (fastify, opts) {
     fastify.post(
 		'/',
 		{
-		  schema: {
+		  schema: schema/*{
 			body: {
 			  type: 'object',
 			  properties: {
@@ -56,17 +57,17 @@ export default async function (fastify, opts) {
 			  },
 			  required: ["reference"]
 			}
-		  }
+		  }*/
 		},
 		async (req, res) => {
 		  fastify.log.info("reference POST")
 		  fastify.log.trace(req.body)
   
-		  if (await createReference(fastify.mariadb, req.body.reference, fastify)) {
+		  //if (await createReference(fastify.mariadb, req.body.reference, fastify)) {
 			  res.send('success');
-		  } else {
-			  res.send('failure');
-		  }
+		  //} else {
+			//  res.send('failure');
+		  //}
 	  })
   
 }

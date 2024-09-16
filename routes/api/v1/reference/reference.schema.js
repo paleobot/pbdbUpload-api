@@ -31,6 +31,7 @@ const journalArticle = 	{
 			pubno: {type: "string"},
 		},
 		required: [
+			"pubtype", 
 			"pubtitle",
 			"pubvol"
 		]	
@@ -57,6 +58,7 @@ const book = {
 			publisher: {type: "string"}
 		},
 		required: [
+			"pubtype", 
 			"publisher"
 		]
 	}
@@ -77,6 +79,7 @@ const chapter = {
 			editors: {type: "string"}
 		},
 		required: [
+			"pubtype", 
 			"pubtitle",
 			"publisher",
 			"editors"
@@ -98,6 +101,7 @@ const editedCollection = {
 			editors: {type: "string"}
 		},
 		required: [
+			"pubtype", 
 			"publisher",
 			"editors"
 		]	

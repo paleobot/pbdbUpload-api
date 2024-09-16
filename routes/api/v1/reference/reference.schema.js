@@ -1,4 +1,5 @@
 /*
+//TODO: Old schema for test table. Delete at some point.
 export const schema = {
     body: {
       type: 'object',

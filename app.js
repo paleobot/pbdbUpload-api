@@ -131,8 +131,11 @@ export default async function (fastify, opts) {
 		connectionLimit: 5
 	})
 	
+	// Decorate request with a 'user' property
+	fastify.decorateRequest('userID', '')
+
 	//TODO: This was a quick and dirty test. Could use some streamlining.
-	fastify.decorate('verifyAuth', async (request, reply, done) => {
+	fastify.decorate('verifyAuth', async (request, reply) => {
 	// your validatifastify
 	const sessionID = request.cookies.session_id
 	fastify.log.trace(sessionID);
@@ -142,39 +145,40 @@ export default async function (fastify, opts) {
 			conn = await fastify.mariadb.getConnection();
 			const sql = `SELECT user_id from session_data where session_id='${sessionID}'`;
 			const rows = await conn.query(sql);
-			fastify.log.trace(rows);
+			//fastify.log.trace(rows);
 			if (rows.length > 0 && rows[0].user_id) {
 				let conn2;
 				try {
 					conn2 = await fastify.mariadb.getConnection();
-					const sql = `SELECT admin, role from pbdb_wing.users where id='${rows[0].user_id}'`;
+					const sql = `SELECT admin, role, person_no from pbdb_wing.users where id='${rows[0].user_id}'`;
 					const rows2 = await conn.query(sql);
-					fastify.log.trace(rows2);
+					//fastify.log.trace(rows2);
 					if (rows2.length > 0 && rows2[0].role) {
+						fastify.log.trace(rows2[0].person_no)
+						request.userID = rows2[0].person_no;
 						if ('enterer' === rows2[0].role) {
-						done()
+							return
 						} else {
-						const err = new Error('hotdog, but not the right kind');
-						err.code = 403;
-						done(err)
+							const err = new Error('hotdog, but not the right kind');
+							err.code = 403;
+							return err
 						}
 					} else {
-						done(new Error('could not access users'))
+						return new Error('could not access users')
 					}
 				} finally {
 					if (conn2) conn2.release(); //release to pool
 				}
 			} else {
-				done(new Error('could not access sessions'))
+				return new Error('session not found')
 			}
 		} finally {
 			if (conn) conn.release(); //release to pool
 		}
-		done();
 	} else {
 		const err = new Error('not hotdog');
 		err.code = 401;
-		done(err)
+		return err
 	}
 	})
 	.register(auth)

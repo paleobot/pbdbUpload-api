@@ -44,21 +44,19 @@ export default async function (fastify, opts) {
         {
 			preHandler : fastify.auth([
 				fastify.verifyAuth,
-			], {
-				relation: 'and'
-			}),
+			]),
 		  	schema: schema
 		},
 		async (req, res) => {
 		  fastify.log.info("reference POST")
 		  fastify.log.trace(req.body)
   
-		  if (await createReference(fastify.mariadb, req.body.reference, req.userID, fastify)) {
+		  if (await createReference(fastify.mariadb, req.body.reference, {userID: req.userID, userName: req.userName}, fastify)) {
 			  //res.send('success');
-			  return "success"
+			  return {statusCode: 200, msg: "success"}
 		  } else {
 			  //res.send('failure');
-			  return "failure"
+			  return {statusCode: 500, msg: "failure"}
 		  }
 	})
 	

@@ -38,37 +38,29 @@ export default async function (fastify, opts) {
 		reply.send(refs);
 	})
 
-	//TODO: This is a test stub that writes to a dummy table.
+	
     fastify.post(
 		'/',
-		{
-		  schema: schema/*{
-			body: {
-			  type: 'object',
-			  properties: {
-				reference: {
-				  type: "object",
-				  properties: {
-					name: { type: 'string' },
-					notes: { type: "string"}
-				  },
-				  required: ["name", "notes"]
-				}
-			  },
-			  required: ["reference"]
-			}
-		  }*/
+        {
+			preHandler : fastify.auth([
+				fastify.verifyAuth,
+			], {
+				relation: 'and'
+			}),
+		  	schema: schema
 		},
 		async (req, res) => {
 		  fastify.log.info("reference POST")
 		  fastify.log.trace(req.body)
   
-		  //if (await createReference(fastify.mariadb, req.body.reference, fastify)) {
-			  res.send('success');
-		  //} else {
-			//  res.send('failure');
-		  //}
-	  })
-  
+		  if (await createReference(fastify.mariadb, req.body.reference, req.userID, fastify)) {
+			  //res.send('success');
+			  return "success"
+		  } else {
+			  //res.send('failure');
+			  return "failure"
+		  }
+	})
+	
 }
 

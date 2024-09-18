@@ -133,58 +133,62 @@ export default async function (fastify, opts) {
 	
 	// Decorate request with a 'user' property
 	fastify.decorateRequest('userID', '')
+	fastify.decorateRequest('userName', '')
 
 	//TODO: This was a quick and dirty test. Could use some streamlining.
 	fastify.decorate('verifyAuth', async (request, reply) => {
-	// your validatifastify
-	const sessionID = request.cookies.session_id
-	fastify.log.trace(sessionID);
-	if (sessionID) {
-		let conn;
-		try {
-			conn = await fastify.mariadb.getConnection();
-			const sql = `SELECT user_id from session_data where session_id='${sessionID}'`;
-			const rows = await conn.query(sql);
-			//fastify.log.trace(rows);
-			if (rows.length > 0 && rows[0].user_id) {
-				let conn2;
-				try {
-					conn2 = await fastify.mariadb.getConnection();
-					const sql = `SELECT admin, role, person_no from pbdb_wing.users where id='${rows[0].user_id}'`;
-					const rows2 = await conn.query(sql);
-					//fastify.log.trace(rows2);
-					if (rows2.length > 0 && rows2[0].role) {
-						fastify.log.trace(rows2[0].person_no)
-						request.userID = rows2[0].person_no;
-						if ('enterer' === rows2[0].role) {
-							return
+		fastify.log.trace("verifyAuth")
+		const sessionID = request.cookies.session_id
+		fastify.log.trace(sessionID);
+		if (sessionID) {
+			let conn;
+			try {
+				conn = await fastify.mariadb.getConnection();
+				const sql = 'SELECT user_id from session_data where session_id = ?';
+				const rows = await conn.query(sql, [sessionID]);
+				//fastify.log.trace(rows);
+				if (rows.length > 0 && rows[0].user_id) {
+					let conn2;
+					try {
+						conn2 = await fastify.mariadb.getConnection();
+						const sql = 'SELECT admin, role, person_no, real_name from pbdb_wing.users where id = ?';
+						const rows2 = await conn.query(sql, rows[0].user_id);
+						//fastify.log.trace(rows2);
+						if (rows2.length > 0 && rows2[0].role) {
+							fastify.log.trace(rows2[0].person_no)
+							request.userID = rows2[0].person_no;
+							request.userName = rows2[0].real_name;
+							if ('enterer' === rows2[0].role) {
+								return
+							} else {
+								const err = new Error('not authorized');
+								err.statusCode = 403;
+								throw err
+							}
 						} else {
-							const err = new Error('hotdog, but not the right kind');
-							err.code = 403;
-							return err
+							const err = new Error('could not access users');
+							err.statusCode = 500;
+							throw err
 						}
-					} else {
-						return new Error('could not access users')
+					} finally {
+						if (conn2) conn2.release(); 
 					}
-				} finally {
-					if (conn2) conn2.release(); //release to pool
+				} else {
+					const err = new Error('session not found');
+					err.statusCode = 400;
+					throw err
 				}
-			} else {
-				return new Error('session not found')
+			} finally {
+				if (conn) conn.release(); 
 			}
-		} finally {
-			if (conn) conn.release(); //release to pool
+		} else {
+			fastify.log.trace("not authenticated")
+			const err = new Error('not authenticated');
+			err.statusCode = 401;
+			throw err
 		}
-	} else {
-		const err = new Error('not hotdog');
-		err.code = 401;
-		return err
-	}
 	})
 	.register(auth)
-  
-
-
 
 
 

@@ -70,7 +70,7 @@ export const createReferencex = async (pool, reference, fastify) => {
     }
 }
 
-export const createReference = async (pool, reference, userID, fastify) => {
+export const createReference = async (pool, reference, user, fastify) => {
     fastify.log.info("createReference");
     fastify.log.trace(reference);
 	
@@ -103,12 +103,11 @@ export const createReference = async (pool, reference, userID, fastify) => {
         values[prop] = reference[prop]
 	})
 
-	propStr += `, enterer_no`;
-	valStr += `, :enterer_no`;
-    values.enterer_no = userID;
-    //TODO: Get pbdb.person.name for enterer
+	propStr += `, enterer , enterer_no`;
+	valStr += `, :enterer, :enterer_no`;
+    values.enterer = user.userName;
+    values.enterer_no = user.userID;
 
-    //TODO: Put this in transaction and update pbdb.person.last_action/last_entry(?)
 	const insertSQL = `insert into refs (${propStr}) values (${valStr})`
 	fastify.log.trace(insertSQL)
 	fastify.log.trace(values)
@@ -116,13 +115,21 @@ export const createReference = async (pool, reference, userID, fastify) => {
     let conn;
     try {
         conn = await pool.getConnection();
+        await conn.beginTransaction();
+
+        const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
+        if (rs.affectedRows !== 1) throw new Error("Could not update person table");
+
         const res = await conn.query({ 
             namedPlaceholders: true, 
             sql: insertSQL
         }, values);
-        fastify.log.trace(res);
-        fastify.log.trace(res.affectedRows)
-        return res.affectedRows;
+
+        await conn.commit();
+        return res;
+    } catch (err) {
+        fastify.log.error("Error loading data, reverting changes: ", err);
+        await conn.rollback();
     } finally {
         if (conn) conn.release(); //release to pool
     }

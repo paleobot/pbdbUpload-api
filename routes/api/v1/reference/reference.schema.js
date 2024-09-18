@@ -20,7 +20,7 @@ export const schema = {
 const journalArticle = 	{
 	if: {
 		properties: {
-			pubtype: { 
+			publication_type: { 
 				const: "journal article" 
 			},
 		},
@@ -32,7 +32,7 @@ const journalArticle = 	{
 			pubno: {type: "string"},
 		},
 		required: [
-			"pubtype", 
+			"publication_type", 
 			"pubtitle",
 			"pubvol"
 		]	
@@ -42,7 +42,7 @@ const journalArticle = 	{
 const book = {
 	if: {
 		properties: {
-			pubtype: {
+			publication_type: {
 				oneOf: [
 					{const: "book"},
 					{const: "serial monograph"},
@@ -59,7 +59,7 @@ const book = {
 			publisher: {type: "string"}
 		},
 		required: [
-			"pubtype", 
+			"publication_type", 
 			"publisher"
 		]
 	}
@@ -68,7 +68,7 @@ const book = {
 const chapter = {
 	if: {
 		properties: {
-			pubtype: {
+			publication_type: {
 				const: "book chapter"
 			},
 		},
@@ -80,7 +80,7 @@ const chapter = {
 			editors: {type: "string"}
 		},
 		required: [
-			"pubtype", 
+			"publication_type", 
 			"pubtitle",
 			"publisher",
 			"editors"
@@ -91,7 +91,7 @@ const chapter = {
 const editedCollection = {
 	if: {
 		properties: {
-			pubtype: {
+			publication_type: {
 				const: "book/book chapter"
 			}
 		}
@@ -102,7 +102,7 @@ const editedCollection = {
 			editors: {type: "string"}
 		},
 		required: [
-			"pubtype", 
+			"publication_type", 
 			"publisher",
 			"editors"
 		]	
@@ -117,7 +117,7 @@ export const schema = {
 			reference: {
 				type: "object",
 				properties: {
-					pubtype: { 
+					publication_type: { 
 						enum: ["journal article","book","book chapter","book/book chapter","serial monograph","compendium","Ph.D. thesis","M.S. thesis","abstract","guidebook","news article","unpublished"]
 					},
 					reftitle: {type: "string"},
@@ -137,7 +137,7 @@ export const schema = {
 					comments: {type: "string"},
 				},
 				required: [
-					"pubtype", 
+					"publication_type", 
 					"reftitle", 
 					"author1init",
 					"author1last",
@@ -145,58 +145,10 @@ export const schema = {
 					"firstpage",
 				],
 				allOf: [
-					
 					journalArticle,
 					book,
 					chapter,
 					editedCollection,
-					
-					/*
-					{
-						if: {
-							properties: {
-								pubtype: { 
-									const: "journal article" 
-								},
-							},
-						},
-						then: {
-							properties: {
-								pubtitle: {type: "string"},
-								pubVol: {type: "string"},
-								pubNo: {type: "string"},
-							},
-							required: [
-								"pubtitle",
-								"pubVol"
-							]	
-						},
-					},
-					{
-						if: {
-							properties: {
-								pubtype: {
-									oneOf: [
-										{const: "book"},
-										{const: "serial monograph"},
-										{const: "compendium"},
-										{const: "Ph.D. thesis"},
-										{const: "M.S. thesis"},
-										{const: "guidebook"}
-									]
-								},
-							},
-						},
-						then: {
-							properties: {
-								publisher: {type: "string"}
-							},
-							required: [
-								"publisher"
-							]
-						}
-					},
-					*/
 				],
 			}
       	}
@@ -204,7 +156,43 @@ export const schema = {
 }
 
 
+export const getPropertiesForPubType = (pubType, fastify) => {
+	fastify.log.trace("getPropertiesForPubType")
+	fastify.log.trace(pubType)
+	let allProps = Object.keys(schema.body.properties.reference.properties)
+	let reqProps = schema.body.properties.reference.required
+	fastify.log.trace(allProps)
+	fastify.log.trace(reqProps)
 
+	switch (pubType) {
+		case "journal article": 
+			allProps = allProps.concat(Object.keys(journalArticle.then.properties))
+			reqProps = reqProps.concat(journalArticle.then.required)
+			break;
+		case "book":
+		case "serial monograph":
+		case "compendium":
+		case "Ph.D. thesis":
+		case "M.S. thesis":
+		case "guidebook":
+			allProps = allProps.concat(Object.keys(book.then.properties))
+			reqProps = reqProps.concat(book.then.required)
+			break;
+		case "book chapter":
+			allProps = allProps.concat(Object.keys(chapter.then.properties))
+			reqProps = reqProps.concat(chapter.then.required)
+			break;
+		case "book/book chapter":
+			allProps = allProps.concat(Object.keys(editedCollection.then.properties))
+			reqProps = reqProps.concat(editedCollection.then.required)
+			break;
+	}
+
+	return {
+		allowedProps: new Set(allProps),
+		requiredProps: reqProps
+	}
+}
 
 
 

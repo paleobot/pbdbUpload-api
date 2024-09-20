@@ -107,10 +107,11 @@ export const createReference = async (pool, reference, user, fastify) => {
     */
 
     const insertAssets = prepareInsertAssets(reference);
-	insertAssets.propStr += `, enterer, enterer_no`;
-	insertAssets.valStr += `, :enterer, :enterer_no`;
-    insertAssets.values.enterer = user.userName;
+	insertAssets.propStr += `, enterer, enterer_no, authorizer_no`;
+	insertAssets.valStr += `, :enterer, :enterer_no, :authorizer_no`;
+    insertAssets.values.enterer = user.userName; //TODO: consider stripping to first initial
     insertAssets.values.enterer_no = user.userID;
+    insertAssets.values.authorizer_no = user.authorizerID;
 
 	const insertSQL = `insert into refs (${insertAssets.propStr}) values (${insertAssets.valStr})`
 	fastify.log.trace(insertSQL)

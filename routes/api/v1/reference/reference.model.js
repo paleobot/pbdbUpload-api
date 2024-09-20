@@ -1,4 +1,5 @@
-import {getPropertiesForPubType} from './reference.schema.js'
+//import {getPropertiesForPubType} from './reference.schema.js'
+import {prepareInsertAssets} from '../../../../util.js'
 
 export const getReferences = async (pool, limit, offset, fastify) => {
     //logger.info("getReferences");
@@ -74,11 +75,12 @@ export const createReference = async (pool, reference, user, fastify) => {
     fastify.log.info("createReference");
     fastify.log.trace(reference);
 	
+    /*
     let properties = Object.keys(reference); //already validate by route logic
     fastify.log.trace(properties)
 
-    const propMaster = getPropertiesForPubType(reference.publication_type, fastify)
-    fastify.log.trace(propMaster)
+    //const propMaster = getPropertiesForPubType(reference.publication_type, fastify)
+    //fastify.log.trace(propMaster)
 
 	//Check for required properties (Arguably, we shouldn't do this)
 	//here. It's business logic and we don't care about that here.
@@ -102,15 +104,17 @@ export const createReference = async (pool, reference, user, fastify) => {
 		valStr += index === 0 ? `:${prop}` : `, :${prop}`;
         values[prop] = reference[prop]
 	})
+    */
 
-	propStr += `, enterer , enterer_no`;
-	valStr += `, :enterer, :enterer_no`;
-    values.enterer = user.userName;
-    values.enterer_no = user.userID;
+    const insertAssets = prepareInsertAssets(reference);
+	insertAssets.propStr += `, enterer, enterer_no`;
+	insertAssets.valStr += `, :enterer, :enterer_no`;
+    insertAssets.values.enterer = user.userName;
+    insertAssets.values.enterer_no = user.userID;
 
-	const insertSQL = `insert into refs (${propStr}) values (${valStr})`
+	const insertSQL = `insert into refs (${insertAssets.propStr}) values (${insertAssets.valStr})`
 	fastify.log.trace(insertSQL)
-	fastify.log.trace(values)
+	fastify.log.trace(insertAssets.values)
 
     let conn;
     try {
@@ -123,7 +127,7 @@ export const createReference = async (pool, reference, user, fastify) => {
         const res = await conn.query({ 
             namedPlaceholders: true, 
             sql: insertSQL
-        }, values);
+        }, insertAssets.values);
 
         await conn.commit();
         return res;
@@ -131,7 +135,7 @@ export const createReference = async (pool, reference, user, fastify) => {
         fastify.log.error("Error loading data, reverting changes: ", err);
         await conn.rollback();
     } finally {
-        if (conn) conn.release(); //release to pool
+        if (conn) conn.release(); 
     }
   
 }

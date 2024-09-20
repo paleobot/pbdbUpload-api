@@ -131,10 +131,22 @@ export const schema = {
 					lastpage: {type: "string"},
 					doi: {type: "string"},
 					language: {
-						type: "string",
+						enum: ['Chinese','English','French','German','Italian','Japanese','Portugese','Russian','Spanish','other','unknown'],
 						default: "English"
 					},
 					comments: {type: "string"},
+					upload: {
+						enum: ['','YES']
+					},
+					classification_quality: {
+						enum: ['authoritative','standard','compendium']
+					},
+					basis: {
+						enum: ['','stated with evidence','stated without evidence','second hand','none discussed','not entered']
+					},
+					project_name: {
+						enum: ['decapod','ETE','5%','1%','PACED','PGAP','fossil record']
+					}
 				},
 				required: [
 					"publication_type", 

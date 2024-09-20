@@ -138,6 +138,7 @@ export default async function (fastify, opts) {
 	// Decorate request with a 'user' property
 	fastify.decorateRequest('userID', '')
 	fastify.decorateRequest('userName', '')
+	fastify.decorateRequest('authorizerID', '')
 
 	//TODO: This was a quick and dirty test. Could use some streamlining.
 	fastify.decorate('verifyAuth', async (request, reply) => {
@@ -155,13 +156,14 @@ export default async function (fastify, opts) {
 					let conn2;
 					try {
 						conn2 = await fastify.mariadb.getConnection();
-						const sql = 'SELECT admin, role, person_no, real_name from pbdb_wing.users where id = ?';
+						const sql = 'SELECT admin, role, person_no, real_name, authorizer_no from pbdb_wing.users where id = ?';
 						const rows2 = await conn.query(sql, rows[0].user_id);
 						//fastify.log.trace(rows2);
 						if (rows2.length > 0 && rows2[0].role) {
 							fastify.log.trace(rows2[0].person_no)
 							request.userID = rows2[0].person_no;
 							request.userName = rows2[0].real_name;
+							request.authorizerID = rows2[0].authorizer_no;
 							if ('enterer' === rows2[0].role) {
 								return
 							} else {

@@ -51,7 +51,7 @@ export default async function (fastify, opts) {
 		  fastify.log.info("reference POST")
 		  fastify.log.trace(req.body)
   
-		  if (await createReference(fastify.mariadb, req.body.reference, {userID: req.userID, userName: req.userName}, fastify)) {
+		  if (await createReference(fastify.mariadb, req.body.reference, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, fastify)) {
 			  //res.send('success');
 			  return {statusCode: 200, msg: "success"}
 		  } else {

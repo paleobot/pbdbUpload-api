@@ -9,11 +9,15 @@ import auth from '@fastify/auth'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
+export let logger = null;
+
 // Pass --options via CLI arguments in command to enable these options.
 export const options = {}
 
 export default async function (fastify, opts) {
 	// Place here your custom code!  
+
+	logger = fastify.log;
 
 	fastify.register(cookie, {
 		hook: 'onRequest', 

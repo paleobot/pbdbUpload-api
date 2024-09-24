@@ -1,5 +1,5 @@
 //import {getPropertiesForPubType} from './reference.schema.js'
-import {prepareInsertAssets} from '../../../../util.js'
+import {prepareInsertAssets, prepareUpdateAssets} from '../../../../util.js'
 
 export const getReferences = async (pool, limit, offset, fastify) => {
     //logger.info("getReferences");
@@ -138,5 +138,42 @@ export const createReference = async (pool, reference, user, fastify) => {
     } finally {
         if (conn) conn.release(); 
     }
-  
 }
+
+export const updateReference = async (pool, patch, user, fastify) => {
+    fastify.log.info("updateReference");
+    fastify.log.trace(user)
+    fastify.log.trace(patch);
+
+    const updateAssets = prepareUpdateAssets(patch);
+    
+    const updateSQL = `update refs set ${updateAssets.propStr}`
+    fastify.log.trace(updateSQL)
+    fastify.log.trace(updateAssets.values)
+
+    //return true;
+    
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
+
+        const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
+        if (rs.affectedRows !== 1) throw new Error("Could not update person table");
+
+        const res = await conn.query({ 
+            namedPlaceholders: true, 
+            sql: updateSQL
+        }, updateAssets.values);
+
+        await conn.commit();
+        return res;
+    } catch (err) {
+        fastify.log.error("Error loading data, reverting changes: ", err);
+        await conn.rollback();
+    } finally {
+        if (conn) conn.release(); 
+    }
+    
+}
+

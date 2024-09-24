@@ -25,6 +25,7 @@
 		"fastify-cli": "^6.3.0",
 		"fastify-mariadb": "^2.0.0",
 		"fastify-plugin": "^4.0.0",
+		"json-merge-patch": "^1.0.2",
 		"pino-pretty": "^11.2.2"
 	},
 	"devDependencies": {

@@ -37,7 +37,7 @@ export const getReference = async (pool, id) => {
     try {
 
       conn = await pool.getConnection();
-      const rows = await conn.query("SELECT reftitle from refs where reference_no = " + id);
+      const rows = await conn.query("SELECT * from refs where reference_no = " + id);
       //logger.silly(rows);
       return rows;
     // rows: [ {val: 1}, meta: ... ]

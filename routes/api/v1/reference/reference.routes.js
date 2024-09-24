@@ -1,4 +1,4 @@
-import {getReferences, getReference, createReference} from './reference.model.js'
+import {getReferences, getReference, createReference, updateReference} from './reference.model.js'
 import {schema} from './reference.schema.js'
 import jmp from 'json-merge-patch'
 
@@ -61,53 +61,51 @@ export default async function (fastify, opts) {
 		  }
 	})
 
-    fastify.patch(
+	/*
+	patch expects the body to be in json merge patch format (https://datatracker.ietf.org/doc/html/rfc7386).
+    */
+	fastify.patch(
 		'/:id',
-		/*
         {
 			preHandler : fastify.auth([
 				fastify.verifyAuth,
 			]),
-		  	schema: schema
+			//validation is handled below
 		},
-		*/
 		async (req, res) => {
 		  	fastify.log.info("reference PATCH")
-			fastify.log.trace(req)
-		  	fastify.log.trace(req.body)
 
+			//fetch existing reference from db
 			const refs = await getReference(fastify.mariadb, req.params.id);
 			fastify.log.trace(refs[0])
-			/*
-			const ref = {reference: Object.entries(refs[0]).reduce((acc, [key, value]) => {
-				if (value !== null && value !== undefined) {
-					acc[key] = value;
-				}
-				return acc;
-			}, {})}
-			*/
-			const ref = {reference: Object.fromEntries(Object.entries(refs[0]).filter(([_, v]) => v != null))};
 
+			//strip null properties
+			const ref = {reference: Object.fromEntries(Object.entries(refs[0]).filter(([_, v]) => v != null))};
 			fastify.log.trace("after stripping nulls")
 			fastify.log.trace(ref)
 
+			//merge with patch in req.body 
 			const mergedRef = jmp.apply(ref, req.body)
 			fastify.log.trace("after merge")
 			fastify.log.trace(mergedRef)
 
+			//create a validator
 			const validate = req.compileValidationSchema(schema.body);
 
+			//validate the merged reference
+			if (!validate(mergedRef)) {
+				fastify.log.error("validation error")
+				fastify.log.trace(validate.errors);
+				return {statusCode: 400, msg: validate.errors}
+			}
 
-			if (validate(mergedRef)) {
+			//if it's good, let the model apply the patch
+			if (await updateReference(fastify.mariadb, req.body.reference, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, fastify)) {
 				return {statusCode: 200, msg: "success"}
 			} else {
-				fastify.log.error("validation error")
-				fastify.log.trace(validate.errors.length)
-				fastify.log.trace(validate.errors);
 				return {statusCode: 500, msg: "failure"}
 			}
-	})
-
-	
+  		}
+	)
 }
 

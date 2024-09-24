@@ -28,7 +28,7 @@ export default async function (fastify, opts) {
 		fastify.log.error("error handler")
 		fastify.log.error(error);
 	
-		let path = request.path;
+		let path = request.path || request.url;
 		const errorLinks = [];
 	
 		//Get rid of path parameters
@@ -40,7 +40,7 @@ export default async function (fastify, opts) {
 		href: url.format({
 					protocol: request.protocol,
 					host: request.hostname,
-					pathname: request.baseUrl + path,
+					pathname: path,
 					query: {"help": "json"}
 		}),
 		rel: "help"

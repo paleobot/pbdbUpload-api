@@ -148,6 +148,8 @@ export const schema = {
 						enum: ['decapod','ETE','5%','1%','PACED','PGAP','fossil record']
 					}
 				},
+				//TODO: Would like to catch these here and generate validation error. Unfortunately, fastify also sets removeAdditional by default, which quietly removes them instead. To change this, would have to move away from fastify-cli (https://github.com/fastify/fastify-cli?tab=readme-ov-file#migrating-out-of-fastify-cli-start)
+				additionalProperties: false,
 				required: [
 					"publication_type", 
 					"reftitle", 
@@ -164,7 +166,7 @@ export const schema = {
 				],
 			}
       	}
-    }
+	}
 }
 
 

@@ -1,5 +1,24 @@
-import {prepareInsertAssets} from '../../../../util.js'
+import {prepareInsertAssets, prepareUpdateAssets} from '../../../../util.js'
 import {logger} from '../../../../app.js'
+
+export const getCollection = async (pool, id) => {
+    //logger.info("getReferences");
+    let conn;
+    try {
+
+      conn = await pool.getConnection();
+      const rows = await conn.query("SELECT * from collections where collection_no = " + id);
+      //logger.silly(rows);
+      return rows;
+    // rows: [ {val: 1}, meta: ... ]
+
+	//const res = await conn.query("INSERT INTO myTable value (?, ?)", [1, "mariadb"]);
+	// res: { affectedRows: 1, insertId: 1, warningStatus: 0 }
+
+    } finally {
+      if (conn) conn.release(); //release to pool
+    }
+}
 
 export const createCollection = async (pool, collection, user) => {
     logger.info("createCollection");
@@ -43,5 +62,45 @@ export const createCollection = async (pool, collection, user) => {
     } finally {
         if (conn) conn.release(); //release to pool
     }
-  
+}
+
+export const updateCollection = async (pool, patch, collectionID, user) => {
+    logger.info("updateCollection");
+    logger.trace(user)
+    logger.trace(patch);
+
+    const updateAssets = prepareUpdateAssets(patch);
+    
+    updateAssets.propStr += `, modifier = :modifier, modifier_no = :modifier_no`
+    updateAssets.values.modifier = user.userName; //TODO: consider stripping to first initial
+    updateAssets.values.modifier_no = user.userID;
+    updateAssets.values.collection_no = collectionID;
+    
+    const updateSQL = `update collections set ${updateAssets.propStr} where collection_no = :collection_no`
+    logger.trace(updateSQL)
+    logger.trace(updateAssets.values)
+
+    //return true;
+    
+    let conn;
+    try {
+        conn = await pool.getConnection();
+        await conn.beginTransaction();
+
+        const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
+        if (rs.affectedRows !== 1) throw new Error("Could not update person table");
+
+        const res = await conn.query({ 
+            namedPlaceholders: true, 
+            sql: updateSQL
+        }, updateAssets.values);
+
+        await conn.commit();
+        return res;
+    } catch (err) {
+        logger.error("Error loading data, reverting changes: ", err);
+        await conn.rollback();
+    } finally {
+        if (conn) conn.release(); 
+    }
 }

@@ -140,14 +140,18 @@ export const createReference = async (pool, reference, user, fastify) => {
     }
 }
 
-export const updateReference = async (pool, patch, user, fastify) => {
+export const updateReference = async (pool, patch, referenceID, user, fastify) => {
     fastify.log.info("updateReference");
     fastify.log.trace(user)
     fastify.log.trace(patch);
 
     const updateAssets = prepareUpdateAssets(patch);
+    updateAssets.propStr += `, modifier = :modifier, modifier_no = :modifier_no`
+    updateAssets.values.modifier = user.userName; //TODO: consider stripping to first initial
+    updateAssets.values.modifier_no = user.userID;
+    updateAssets.values.reference_no = referenceID;
     
-    const updateSQL = `update refs set ${updateAssets.propStr}`
+    const updateSQL = `update refs set ${updateAssets.propStr} where reference_no = :reference_no`
     fastify.log.trace(updateSQL)
     fastify.log.trace(updateAssets.values)
 

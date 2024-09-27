@@ -100,7 +100,7 @@ export default async function (fastify, opts) {
 			}
 
 			//if it's good, let the model apply the patch
-			if (await updateReference(fastify.mariadb, req.body.reference, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, fastify)) {
+			if (await updateReference(fastify.mariadb, req.body.reference, req.params.id, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, fastify)) {
 				return {statusCode: 200, msg: "success"}
 			} else {
 				return {statusCode: 500, msg: "failure"}

@@ -1,8 +1,50 @@
+export const patchSchema = {
+    body: {
+		type: 'object',
+		properties: {
+			collection: {
+				type: "object",
+				allOf: [
+					{
+						if: {
+						   properties: {
+							  lat: {
+								 type: "number"
+							  }
+						   }
+						},
+						then: {
+						   required: [
+							  "lng"
+						   ]
+						}
+					 },				
+					 {
+						if: {
+						   properties: {
+							  lng: {
+								 type: "number"
+							  }
+						   }
+						},
+						then: {
+						   required: [
+							  "lat"
+						   ]
+						}
+					 }				
+				]
+			}
+		}
+	}
+}
+
+
 export const schema = {
     body: {
 		type: 'object',
 		properties: {
-			reference: {
+			collection: {
 				type: "object",
 				properties: {
 					collection_name: {type: "string"},
@@ -17,6 +59,7 @@ export const schema = {
 					release_date: {type: "string"},
 					country: {type: "string"},
 					state: {type: "string"},
+					county: {type: "string"},
 					lat: {type: "number"},
 					lng: {type: "number"},
 					latlng_basis: {
@@ -30,25 +73,37 @@ export const schema = {
 					},
 					lithdescript: {type: "string"},	
 					lithadj: {
-						enum: ['massive','lenticular','tabular','desiccation cracks','current ripples','dunes','hummocky CS','wave ripples','"cross stratification"','wavy/flaser/lenticular bedding','planar lamination','tool marks','flute casts','deformed bedding','grading','burrows','bioturbation','paleosol/pedogenic','condensed','firmground','hardground','lag','very fine','fine','medium','coarse','very coarse','bentonitic','concretionary','diatomaceous','dolomitic','ferruginous','glauconitic','gypsiferous','hematitic','micaceous','nodular','pebbly','phosphatic','pyritic','quartzose','rubbly','sideritic','tuffaceous','stromatolitic','volcaniclastic','flat-pebble','intraclastic','oncoidal','ooidal','peloidal','shelly/skeletal','black','brown','gray','green','red','red or brown','white','yellow','blue','thrombolitic']	
+						type: "array",
+						items: {
+							enum: ['massive','lenticular','tabular','desiccation cracks','current ripples','dunes','hummocky CS','wave ripples','"cross stratification"','wavy/flaser/lenticular bedding','planar lamination','tool marks','flute casts','deformed bedding','grading','burrows','bioturbation','paleosol/pedogenic','condensed','firmground','hardground','lag','very fine','fine','medium','coarse','very coarse','bentonitic','concretionary','diatomaceous','dolomitic','ferruginous','glauconitic','gypsiferous','hematitic','micaceous','nodular','pebbly','phosphatic','pyritic','quartzose','rubbly','sideritic','tuffaceous','stromatolitic','volcaniclastic','flat-pebble','intraclastic','oncoidal','ooidal','peloidal','shelly/skeletal','black','brown','gray','green','red','red or brown','white','yellow','blue','thrombolitic']	
+						}
 					},
 					lithification: {
 						enum: ['lithified','poorly lithified','unlithified','metamorphosed']
 					},	
 					minor_lithology: {
-						enum: ['argillaceous','muddy','silty','sandy','conglomeratic','calcareous','cherty/siliceous','carbonaceous']
+						type: "array",
+						items: {
+							enum: ['argillaceous','muddy','silty','sandy','conglomeratic','calcareous','cherty/siliceous','carbonaceous']
+						}
 					},	
 					fossilsfrom1: {
 						enum: ['Y'] //TODO: This is weird
 					},	
 					lithadj2: {
-						enum: ['massive','lenticular','tabular','desiccation cracks','current ripples','dunes','hummocky CS','wave ripples','"cross stratification"','wavy/flaser/lenticular bedding','planar lamination','tool marks','flute casts','deformed bedding','grading','burrows','bioturbation','paleosol/pedogenic','condensed','firmground','hardground','lag','very fine','fine','medium','coarse','very coarse','bentonitic','concretionary','diatomaceous','dolomitic','ferruginous','glauconitic','gypsiferous','hematitic','micaceous','nodular','pebbly','phosphatic','pyritic','quartzose','rubbly','sideritic','tuffaceous','stromatolitic','volcaniclastic','flat-pebble','intraclastic','oncoidal','ooidal','peloidal','shelly/skeletal','black','brown','gray','green','red','red or brown','white','yellow','blue','thrombolitic']
+						type: "array",
+						items: {
+							enum: ['massive','lenticular','tabular','desiccation cracks','current ripples','dunes','hummocky CS','wave ripples','"cross stratification"','wavy/flaser/lenticular bedding','planar lamination','tool marks','flute casts','deformed bedding','grading','burrows','bioturbation','paleosol/pedogenic','condensed','firmground','hardground','lag','very fine','fine','medium','coarse','very coarse','bentonitic','concretionary','diatomaceous','dolomitic','ferruginous','glauconitic','gypsiferous','hematitic','micaceous','nodular','pebbly','phosphatic','pyritic','quartzose','rubbly','sideritic','tuffaceous','stromatolitic','volcaniclastic','flat-pebble','intraclastic','oncoidal','ooidal','peloidal','shelly/skeletal','black','brown','gray','green','red','red or brown','white','yellow','blue','thrombolitic']
+						}
 					},	
 					lithification2: {
 						enum: ['unlithified','poorly lithified','lithified','metamorphosed']
 					},	
 					minor_lithology2: {
-						enum: ['argillaceous','muddy','silty','sandy','conglomeratic','calcareous','cherty/siliceous','carbonaceous']
+						type: "array",
+						items: {
+							enum: ['argillaceous','muddy','silty','sandy','conglomeratic','calcareous','cherty/siliceous','carbonaceous']
+						}
 					},	
 					lithology2: {
 						enum: ['"siliciclastic"','claystone','mudstone','"shale"','siltstone','sandstone','gravel','conglomerate','breccia','"mixed carbonate-siliciclastic"','marl','lime mudstone','chalk','travertine','wackestone','packstone','grainstone','"reef rocks"','floatstone','rudstone','bafflestone','bindstone','framestone','"limestone"','dolomite','"carbonate"','calcareous ooze','chert','diatomite','radiolarite','silicious ooze','amber','coal','peat','lignite','subbituminous coal','bituminous coal','anthracite','coal ball','tar','evaporite','gypsum','phosphorite','pyrite','ironstone','siderite','phyllite','slate','schist','quartzite','"volcaniclastic"','ash','tuff']
@@ -67,19 +122,10 @@ export const schema = {
 					},	
 					geology_comments: {type: "string"},	
 					pres_mode: {
-						enum: ['body','cast','mold/impression','adpression','trace','concretion','soft parts','recrystallized','permineralized','dissolution traces','charcoalification','coalified','original aragonite','original calcite','original phosphate','original silica','original chitin','original carbon','original sporopollenin','original cellulose','replaced with calcite','replaced with dolomite','replaced with silica','replaced with pyrite','replaced with siderite','replaced with hematite','replaced with limonite','replaced with phosphate','replaced with carbon','replaced with other','amber','anthropogenic','bone collector','coquina','coprolite','midden','shellbed']
-					},
-					tectonic_setting: {
-						enum: ['rift','passive margin','back-arc basin','cratonic basin','deep ocean basin','forearc basin','foreland basin','intermontane basin','intramontane basin','piggyback basin','pull-apart basin','volcanic basin','impact basin','non-subsiding area']
-					},		
-					seq_strat:	{
-						enum: ['interglacial','glacial','early glacial','high glacial','late glacial','transgressive','regressive','transgressive systems tract','highstand systems tract','lowstand systems tract','parasequence boundary','transgressive surface','maximum flooding surface','sequence boundary']
-					},	
-					geology_comments: {	
-						type: "string"
-					},	
-					pres_mode: {
-						enum: ['body','cast','mold/impression','adpression','trace','concretion','soft parts','recrystallized','permineralized','dissolution traces','charcoalification','coalified','original aragonite','original calcite','original phosphate','original silica','original chitin','original carbon','original sporopollenin','original cellulose','replaced with calcite','replaced with dolomite','replaced with silica','replaced with pyrite','replaced with siderite','replaced with hematite','replaced with limonite','replaced with phosphate','replaced with carbon','replaced with other','amber','anthropogenic','bone collector','coquina','coprolite','midden','shellbed']
+						type: "array",
+						items: {
+							enum: ['body','cast','mold/impression','adpression','trace','concretion','soft parts','recrystallized','permineralized','dissolution traces','charcoalification','coalified','original aragonite','original calcite','original phosphate','original silica','original chitin','original carbon','original sporopollenin','original cellulose','replaced with calcite','replaced with dolomite','replaced with silica','replaced with pyrite','replaced with siderite','replaced with hematite','replaced with limonite','replaced with phosphate','replaced with carbon','replaced with other','amber','anthropogenic','bone collector','coquina','coprolite','midden','shellbed']
+						}
 					},
 					temporal_resolution: {
 						enum: ['snapshot','time-averaged','condensed']
@@ -118,7 +164,10 @@ export const schema = {
 						type: "string"
 					},	
 					assembl_comps: {
-						enum: ['macrofossils','mesofossils','microfossils']
+						type: "array",
+						items: {
+							enum: ['macrofossils','mesofossils','microfossils']
+						}
 					},	
 					articulated_parts: {
 						enum: ['none','some','many']
@@ -139,25 +188,43 @@ export const schema = {
 						enum: ['none','some','many','all']
 					},	
 					common_body_parts: {
-						enum: ['','other','skeletons','partial skeletons','skulls','partial skulls','maxillae','mandibles','teeth','otoliths','postcrania','vertebrae','limb elements','osteoderms','dermal scales','footprints','eggs','shells','partial shells','tests','valves','exoskeletons','cephalons/heads','thoraces','cephalothoraces','carapaces','abdomens','pygidia','claws','appendages','wings','forewings','hindwings','tegmina','elytra','nymphs','calyces','stems','stem ossicles','leaves','seeds','fruit','axes','plant debris','marine palyn','microspores','megaspores','flowers','seed repro','non-seed repro','wood','sterile axes','fertile axes','roots','cuticles','multi organs']
+						type: "array",
+						items: {
+							enum: ['','other','skeletons','partial skeletons','skulls','partial skulls','maxillae','mandibles','teeth','otoliths','postcrania','vertebrae','limb elements','osteoderms','dermal scales','footprints','eggs','shells','partial shells','tests','valves','exoskeletons','cephalons/heads','thoraces','cephalothoraces','carapaces','abdomens','pygidia','claws','appendages','wings','forewings','hindwings','tegmina','elytra','nymphs','calyces','stems','stem ossicles','leaves','seeds','fruit','axes','plant debris','marine palyn','microspores','megaspores','flowers','seed repro','non-seed repro','wood','sterile axes','fertile axes','roots','cuticles','multi organs']
+						}
 					},
 					rare_body_parts: {
-						enum: ['','other','skeletons','partial skeletons','skulls','partial skulls','maxillae','mandibles','teeth','otoliths','postcrania','vertebrae','limb elements','osteoderms','dermal scales','footprints','eggs','shells','partial shells','tests','valves','exoskeletons','cephalons/heads','thoraces','cephalothoraces','carapaces','abdomens','pygidia','claws','appendages','wings','forewings','hindwings','tegmina','elytra','nymphs','calyces','stems','stem ossicles','leaves','seeds','fruit','axes','plant debris','marine palyn','microspores','megaspores','flowers','seed repro','non-seed repro','wood','sterile axes','fertile axes','roots','cuticles','multi organs']
+						type: "array",
+						items: {
+							enum: ['','other','skeletons','partial skeletons','skulls','partial skulls','maxillae','mandibles','teeth','otoliths','postcrania','vertebrae','limb elements','osteoderms','dermal scales','footprints','eggs','shells','partial shells','tests','valves','exoskeletons','cephalons/heads','thoraces','cephalothoraces','carapaces','abdomens','pygidia','claws','appendages','wings','forewings','hindwings','tegmina','elytra','nymphs','calyces','stems','stem ossicles','leaves','seeds','fruit','axes','plant debris','marine palyn','microspores','megaspores','flowers','seed repro','non-seed repro','wood','sterile axes','fertile axes','roots','cuticles','multi organs']
+						}
 					},
 					feed_pred_traces: {
-						enum: ['drill holes','repair scars','fractures','punctures','tooth marks','gastric dissolution','burning','cutmarks','stone tools','external foliage feeding','arthropod mining','arthropod galling','arthropod boring','seed feeding','piercing/sucking','palynivory','oviposition']
+						type: "array",
+						items: {
+							enum: ['drill holes','repair scars','fractures','punctures','tooth marks','gastric dissolution','burning','cutmarks','stone tools','external foliage feeding','arthropod mining','arthropod galling','arthropod boring','seed feeding','piercing/sucking','palynivory','oviposition']
+						}
 					},
 					artifacts: {
-						enum: ['stone points','stone tools','debitage','cutmarks','bone tools','burned bone','charcoal/hearths','metal tools','ceramics','textiles','structural remains','historical artifacts']
+						type: "array",
+						items: {
+							enum: ['stone points','stone tools','debitage','cutmarks','bone tools','burned bone','charcoal/hearths','metal tools','ceramics','textiles','structural remains','historical artifacts']
+						}
 					},	
 					component_comments: {
 						type: "string"
 					},
 					collection_coverage: {
-						enum: ['all macrofossils','all microfossils','some genera','some macrofossils','some microfossils','species names','difficult macrofossils','ichnofossils']
+						type: "array",
+						items: {
+							enum: ['all macrofossils','all microfossils','some genera','some macrofossils','some microfossils','species names','difficult macrofossils','ichnofossils']
+						}
 					},	
 					coll_meth: {
-						enum: ['bulk','core','salvage','selective quarrying','surface (float)','surface (in situ)','anthill','chemical','mechanical','peel or thin section','smear slide','acetic','hydrochloric','hydroflouric','peroxide','sieve','field collection','survey of museum collection','private collection','observed (not collected)','repository not specified']
+						type: "array",
+						items: {
+							enum: ['bulk','core','salvage','selective quarrying','surface (float)','surface (in situ)','anthill','chemical','mechanical','peel or thin section','smear slide','acetic','hydrochloric','hydroflouric','peroxide','sieve','field collection','survey of museum collection','private collection','observed (not collected)','repository not specified']
+						}
 					},	
 					sieve_size_min: {
 						type: "number"
@@ -178,7 +245,10 @@ export const schema = {
 						enum: ['cm (line intercept)','cm2 (area)','cm3 (volume)','g','kg','# of surfaces (quadrat)']
 					},
 					museum: {
-						enum: ['AMNH','AMPG','ANSP','BAS','BGS','BMNH','BPI','BSP','CAS','CIT','CM','DMNH','FLMNH','FMNH','GSC','GSI','IGNS','IVAU','IVPP','LACM','MACN','MCZ','MEF','MfN','MLP','MNHN','MNHN (La Paz)','NHMW','NIGPAS','NMB','NMC','NMMNH','NYSM','OSU','OU','OUM','PIN','PRI','ROM','SDSM','SGOPV','SM','SMF','SMNS','SUI','TMM','TMP','UCM','UCMP','UMMP','UNM','UNSM','UQ','USGS','USNM','UW','UWBM','WAM','YPM']
+						type: "array",
+						items: {
+							enum: ['AMNH','AMPG','ANSP','BAS','BGS','BMNH','BPI','BSP','CAS','CIT','CM','DMNH','FLMNH','FMNH','GSC','GSI','IGNS','IVAU','IVPP','LACM','MACN','MCZ','MEF','MfN','MLP','MNHN','MNHN (La Paz)','NHMW','NIGPAS','NMB','NMC','NMMNH','NYSM','OSU','OU','OUM','PIN','PRI','ROM','SDSM','SGOPV','SM','SMF','SMNS','SUI','TMM','TMP','UCM','UCMP','UMMP','UNM','UNSM','UQ','USGS','USNM','UW','UWBM','WAM','YPM']
+						}
 					},
 					collectors: {
 						type: "string"
@@ -196,10 +266,16 @@ export const schema = {
 						enum: ['ETE','Fossilworks','PaleoDB','PGAP']
 					},
 					research_group: {
-						enum: ['decapod','ETE','freshwater','GCP','marine invertebrate','micropaleontology','mid-Pz','PACED','paleobotany','paleoentomology','taphonomy','vertebrate','eODP']
+						type: "array",
+						items: {
+							enum: ['decapod','ETE','freshwater','GCP','marine invertebrate','micropaleontology','mid-Pz','PACED','paleobotany','paleoentomology','taphonomy','vertebrate','eODP']
+						}
 					},	
 					license: {
-						enum: ['','CC BY']
+						type: "array",
+						items: {
+							enum: ['','CC BY']
+						}
 					},	
 					collection_subset: {
 						type: "integer"
@@ -267,9 +343,6 @@ export const schema = {
 					stratcomments: {
 						type: "string"
 					},				
-										
-
-					
 				},
 				required: [
                     "reference_no",

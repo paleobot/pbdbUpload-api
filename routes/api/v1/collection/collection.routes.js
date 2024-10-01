@@ -1,4 +1,4 @@
-import {schema} from './collection.schema.js'
+import {schema, patchSchema} from './collection.schema.js'
 import {getCollection, createCollection, updateCollection} from './collection.model.js'
 import jmp from 'json-merge-patch'
 
@@ -38,7 +38,7 @@ export default async function (fastify, opts) {
 			preHandler : fastify.auth([
 				fastify.verifyAuth,
 			]),
-			//validation is handled below
+			schema: patchSchema
 		},
 		async (req, res) => {
 		  	fastify.log.info("collection PATCH")
@@ -60,7 +60,7 @@ export default async function (fastify, opts) {
 			//create a validator
 			const validate = req.compileValidationSchema(schema.body);
 
-			//validate the merged reference
+			//validate the merged collection
 			if (!validate(mergedCollection)) {
 				fastify.log.error("validation error")
 				fastify.log.trace(validate.errors);

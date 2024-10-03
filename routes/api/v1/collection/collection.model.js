@@ -9,6 +9,11 @@ export const getCollection = async (pool, id) => {
       conn = await pool.getConnection();
       const rows = await conn.query("SELECT * from collections where collection_no = " + id);
       //logger.silly(rows);
+
+      //Need to convert validating date fields to ISO string
+      rows.forEach(row => {
+        row.release_date = row.release_date.toISOString();
+      });      
       return rows;
     // rows: [ {val: 1}, meta: ... ]
 
@@ -59,6 +64,14 @@ export const createCollection = async (pool, collection, user) => {
         conn = await pool.getConnection();
         await conn.beginTransaction();
 
+        //verify reference_no
+        const testResult = await conn.query("select reference_no from refs where reference_no = ?", [collection.reference_no]);
+        if (testResult.length === 0) {
+            const error = new Error("Unrecognized reference_no");
+            error.statusCode = 400
+            throw error
+        }
+
         //logger.trace("before update")
         const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
         if (rs.affectedRows !== 1) throw new Error("Could not update person table");
@@ -77,6 +90,7 @@ export const createCollection = async (pool, collection, user) => {
         logger.error("Error loading data, reverting changes: ", err);
         logger.error(err)
         await conn.rollback();
+        throw err
     } finally {
         if (conn) conn.release(); //release to pool
     }
@@ -95,22 +109,23 @@ export const updateCollection = async (pool, patch, collectionID, user) => {
     updateAssets.values.collection_no = collectionID;
 
     //derived properties
-    if (patch.lat || patch.lng) {}
-    updateAssets.propStr += `, latdir = :latdir, latdeg = :latdeg, latmin = :latmin, latsec = :latsec, lngdir = :lngdir, lngdeg = :lngdeg, lngmin = :lngmin, lngsec = :lngsec, coordinate = (PointFromText(:coordinate))`;
-    
-    const latDeg = calcDegreesMinutesSeconds(patch.lat)
-    updateAssets.values.latdir = patch.lat >= 0 ? "North" : "South";
-    updateAssets.values.latdeg = latDeg.degrees;
-    updateAssets.values.latmin = latDeg.minutes;
-    updateAssets.values.latsec = latDeg.seconds;
-    
-    const lonDeg = calcDegreesMinutesSeconds(patch.lng)
-    updateAssets.values.lngdir = patch.lng >= 0 ? "East" : "West";
-    updateAssets.values.lngdeg = lonDeg.degrees;
-    updateAssets.values.lngmin = lonDeg.minutes;
-    updateAssets.values.lngsec = lonDeg.seconds;
+    if (patch.lat && patch.lng) {
+        updateAssets.propStr += `, latdir = :latdir, latdeg = :latdeg, latmin = :latmin, latsec = :latsec, lngdir = :lngdir, lngdeg = :lngdeg, lngmin = :lngmin, lngsec = :lngsec, coordinate = (PointFromText(:coordinate))`;
+        
+        const latDeg = calcDegreesMinutesSeconds(patch.lat)
+        updateAssets.values.latdir = patch.lat >= 0 ? "North" : "South";
+        updateAssets.values.latdeg = latDeg.degrees;
+        updateAssets.values.latmin = latDeg.minutes;
+        updateAssets.values.latsec = latDeg.seconds;
+        
+        const lonDeg = calcDegreesMinutesSeconds(patch.lng)
+        updateAssets.values.lngdir = patch.lng >= 0 ? "East" : "West";
+        updateAssets.values.lngdeg = lonDeg.degrees;
+        updateAssets.values.lngmin = lonDeg.minutes;
+        updateAssets.values.lngsec = lonDeg.seconds;
 
-    updateAssets.values.coordinate = `POINT(${patch.lat} ${patch.lng})`;
+        updateAssets.values.coordinate = `POINT(${patch.lat} ${patch.lng})`;
+    }
     
     const updateSQL = `update collections set ${updateAssets.propStr} where collection_no = :collection_no`
     logger.trace(updateSQL)
@@ -122,6 +137,16 @@ export const updateCollection = async (pool, patch, collectionID, user) => {
     try {
         conn = await pool.getConnection();
         await conn.beginTransaction();
+
+        //verify reference_no
+        if (patch.reference_no) {
+            const testResult = await conn.query("select reference_no from refs where reference_no = ?", [patch.reference_no]);
+            if (testResult.length === 0) {
+                const error = new Error("Unrecognized reference_no");
+                error.statusCode = 400
+                throw error
+            }
+        }
 
         const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
         if (rs.affectedRows !== 1) throw new Error("Could not update person table");
@@ -136,6 +161,7 @@ export const updateCollection = async (pool, patch, collectionID, user) => {
     } catch (err) {
         logger.error("Error loading data, reverting changes: ", err);
         await conn.rollback();
+        throw err
     } finally {
         if (conn) conn.release(); 
     }

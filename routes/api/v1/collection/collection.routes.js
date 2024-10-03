@@ -19,13 +19,9 @@ export default async function (fastify, opts) {
 			fastify.log.info("collection POST")
 			fastify.log.trace(req.body)
 	
-			if (await createCollection(fastify.mariadb, req.body.collection, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID})) {
-				//res.send('success');
-				return {statusCode: 200, msg: "success"}
-			} else {
-				//res.send('failure');
-				return {statusCode: 500, msg: "failure"}
-			}
+			await createCollection(fastify.mariadb, req.body.collection, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID})
+			
+			return {statusCode: 200, msg: "success"}
 		}
 	)
 
@@ -68,11 +64,9 @@ export default async function (fastify, opts) {
 			}
 
 			//if it's good, let the model apply the patch
-			if (await updateCollection(fastify.mariadb, req.body.collection, req.params.id, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID})) {
-				return {statusCode: 200, msg: "success"}
-			} else {
-				return {statusCode: 500, msg: "failure"}
-			}
+			await updateCollection(fastify.mariadb, req.body.collection, req.params.id, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID})
+
+			return {statusCode: 200, msg: "success"}
   		}
 	)
 

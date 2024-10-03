@@ -4,36 +4,14 @@ export const patchSchema = {
 		properties: {
 			collection: {
 				type: "object",
-				allOf: [
-					{
-						if: {
-						   properties: {
-							  lat: {
-								 type: "number"
-							  }
-						   }
-						},
-						then: {
-						   required: [
-							  "lng"
-						   ]
-						}
-					 },				
-					 {
-						if: {
-						   properties: {
-							  lng: {
-								 type: "number"
-							  }
-						   }
-						},
-						then: {
-						   required: [
-							  "lat"
-						   ]
-						}
-					 }				
-				]
+				properties: {
+					lat: {type: "number"},
+					lng: {type: "number"}
+				},
+				dependencies: {
+					lat: ["lng"],
+					lng: ["lat"],
+				}
 			}
 		}
 	}
@@ -56,12 +34,23 @@ export const schema = {
                         enum: ['the public','database members','group members','authorizer only'],
                         default: "the public"
                     },
-					release_date: {type: "string"},
+					release_date: {
+						type: "string",
+						format: "date-time"
+					},
 					country: {type: "string"},
 					state: {type: "string"},
 					county: {type: "string"},
-					lat: {type: "number"},
-					lng: {type: "number"},
+					lat: {
+						type: "number",
+						minimum: -90,
+						maximum: 90
+					},
+					lng: {
+						type: "number",
+						minimum: -180,
+						maximum: 180
+					},
 					latlng_basis: {
 						enum: ['','stated in text','based on nearby landmark','based on political unit','estimated from map','unpublished field data']
 					},

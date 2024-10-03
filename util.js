@@ -15,7 +15,7 @@ export const prepareInsertAssets = (object) => {
         //mariadb values for set types must be properly formatted
         if (Array.isArray(object[prop])) {
             values[prop] = object[prop].reduce((acc, obj, i) => {
-                acc += i === 0 ? `${obj}` : `,${obj}`
+                return acc += i === 0 ? `${obj}` : `,${obj}`
             }, '')
         } else {
             values[prop] = object[prop]

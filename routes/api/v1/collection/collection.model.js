@@ -2,24 +2,18 @@ import {prepareInsertAssets, prepareUpdateAssets, calcDegreesMinutesSeconds} fro
 import {logger} from '../../../../app.js'
 
 export const getCollection = async (pool, id) => {
-    //logger.info("getReferences");
+    //logger.info("getCollection");
     let conn;
     try {
 
       conn = await pool.getConnection();
       const rows = await conn.query("SELECT * from collections where collection_no = " + id);
-      //logger.silly(rows);
 
       //Need to convert validating date fields to ISO string
       rows.forEach(row => {
         row.release_date = row.release_date.toISOString();
       });      
       return rows;
-    // rows: [ {val: 1}, meta: ... ]
-
-	//const res = await conn.query("INSERT INTO myTable value (?, ?)", [1, "mariadb"]);
-	// res: { affectedRows: 1, insertId: 1, warningStatus: 0 }
-
     } finally {
       if (conn) conn.release(); //release to pool
     }
@@ -72,18 +66,14 @@ export const createCollection = async (pool, collection, user) => {
             throw error
         }
 
-        //logger.trace("before update")
         const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
         if (rs.affectedRows !== 1) throw new Error("Could not update person table");
 
-        //logger.trace("before insert")
         const res = await conn.query({ 
             namedPlaceholders: true, 
             sql: insertSQL
         }, insertAssets.values);
         
-
-        //logger.trace("before commit")
         await conn.commit();
         return res;
     } catch (err) {
@@ -126,7 +116,7 @@ export const updateCollection = async (pool, patch, collectionID, user) => {
 
         updateAssets.values.coordinate = `POINT(${patch.lat} ${patch.lng})`;
     }
-    
+
     const updateSQL = `update collections set ${updateAssets.propStr} where collection_no = :collection_no`
     logger.trace(updateSQL)
     logger.trace(updateAssets.values)

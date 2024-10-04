@@ -1,20 +1,5 @@
 /*
-//TODO: Old schema for test table. Delete at some point.
-export const schema = {
-    body: {
-      type: 'object',
-      properties: {
-        reference: {
-          type: "object",
-          properties: {
-            name: { type: 'string' },
-            notes: { type: "string"}
-          },
-          required: ["name", "notes"]
-        }
-      }
-    }
-}
+Validation schemas in JSON Schema format. Note that fastify uses ajv (https://ajv.js.org/) for validation, which expects the schemas to be javascript objects rather than raw JSON. Consequently, property names (keys) do not require double quotes.
 */
 
 const journalArticle = 	{
@@ -43,13 +28,13 @@ const book = {
 	if: {
 		properties: {
 			publication_type: {
-				oneOf: [
-					{const: "book"},
-					{const: "serial monograph"},
-					{const: "compendium"},
-					{const: "Ph.D. thesis"},
-					{const: "M.S. thesis"},
-					{const: "guidebook"}
+				enum: [
+					"book",
+					"serial monograph",
+					"compendium",
+					"Ph.D. thesis",
+					"M.S. thesis",
+					"guidebook"
 				]
 			},
 		},

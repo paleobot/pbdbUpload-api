@@ -4,6 +4,7 @@ import jmp from 'json-merge-patch'
 
 export default async function (fastify, opts) {
 
+	//TODO: We aren't providing GET functionality. This is just for testing.
 	fastify.get(
     	'/',
         {

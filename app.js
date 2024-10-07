@@ -128,11 +128,13 @@ export default async function (fastify, opts) {
 	
 	fastify.register(mariadb, {
 		promise: true,
-		host: 'localhost',
+		//TODO:  get host from .env and make it dependent on run variable.
+		//Note: This works if host.docker.internal is added to docker run in vscode settings
+		host: 'host.docker.internal',//'localhost',
 		user: 'pbdbuser',
 		password: 'pbdbpwd',
 		database: 'pbdb',
-		connectionLimit: 5
+		connectionLimit: 5,
 	})
 	
 	// Decorate request with a 'user' property

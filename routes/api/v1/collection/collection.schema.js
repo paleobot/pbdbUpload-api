@@ -60,6 +60,46 @@ export const schema = {
 					},
 					max_interval_no: {type: "integer"},
 					min_interval_no: {type: "integer"},
+					emlperiod_max: {
+						enum: ['Late/Upper','Middle - Late/Upper','Middle','Early/Lower - Middle','Early/Lower']
+					},	
+					emlperiod_min: {
+						enum: ['Late/Upper','Middle - Late/Upper','Middle','Early/Lower - Middle','Early/Lower']
+					},
+					period_max:	{
+						enum: ['Modern','Quaternary','Tertiary','Cretaceous','Jurassic','Triassic','Permian','Carboniferous','Devonian','Silurian','Ordovician','Cambrian','Neoproterozoic']
+					},
+					period_min:	{
+						enum: ['Modern','Quaternary','Tertiary','Cretaceous','Jurassic','Triassic','Permian','Carboniferous','Devonian','Silurian','Ordovician','Cambrian','Neoproterozoic']
+					},
+					emlepoch_max: {
+						enum: ['Late/Upper','Middle - Late/Upper','Middle','Early/Lower - Middle','Early/Lower']
+					},
+					emlepoch_min: {
+						enum: ['Late/Upper','Middle - Late/Upper','Middle','Early/Lower - Middle','Early/Lower']
+					},
+					epoch_max:	{type: "string"},	
+					epoch_min:	{type: "string"},	
+					emlintage_max: {
+						enum: ['Late/Upper','Middle - Late/Upper','Middle','Early/Lower - Middle','Early/Lower']
+					},
+					intage_max:	{type: "string"},
+					emlintage_min: {
+						enum: ['Late/Upper','Middle - Late/Upper','Middle','Early/Lower - Middle','Early/Lower']
+					},
+					intage_min:	{type: "string"},	
+					emllocage_max: {
+						enum: ['Late/Upper','Middle - Late/Upper','Middle','Early/Lower - Middle','Early/Lower']
+					},
+					locage_max:	{type: "string"},	
+					emllocage_min: {
+						enum: ['Late/Upper','Middle - Late/Upper','Middle','Early/Lower - Middle','Early/Lower']
+					},
+					locage_min: {type: "string"},	
+					zone_type: {
+						enum: ['ammonoid','brachiopod','conodont','foram','graptolite','inoceramid','mammal','nannofossil','pollen','small shelly','trilobite','other']
+					},
+					zone: {type: "string"},	
 					lithology1: {
 						enum: ['not reported','"siliciclastic"','claystone','mudstone','"shale"','siltstone','sandstone','gravel','conglomerate','breccia','"mixed carbonate-siliciclastic"','marl','lime mudstone','chalk','travertine','wackestone','packstone','grainstone','"reef rocks"','floatstone','rudstone','bafflestone','bindstone','framestone','"limestone"','dolomite','"carbonate"','calcareous ooze','chert','diatomite','silicious ooze','radiolarite','amber','coal','peat','lignite','subbituminous coal','bituminous coal','anthracite','coal ball','tar','evaporite','gypsum','phosphorite','pyrite','ironstone','siderite','phyllite','slate','schist','quartzite','"volcaniclastic"','ash','tuff'],
 						default: "English"

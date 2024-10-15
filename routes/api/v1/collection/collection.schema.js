@@ -33,7 +33,14 @@ export const schema = {
 					collection_type: {
                         enum: ['archaeological','biostratigraphic','paleoecologic','taphonomic','taxonomic','general faunal/floral'],
                     },
-					reference_no: {type: "integer"},
+					references: {
+						type: "array",
+						items: {
+							type: "integer"
+						},
+						"minItems": 1,
+						"uniqueItems": true,
+					},
 					access_level: {
                         enum: ['the public','database members','group members','authorizer only'],
                         default: "the public"
@@ -377,8 +384,9 @@ export const schema = {
 						type: "string"
 					},				
 				},
+				additionalProperties: false,
 				required: [
-                    "reference_no",
+					"references",
                     "access_level",
                     "release_date",
                     "collection_name",

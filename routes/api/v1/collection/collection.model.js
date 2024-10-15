@@ -65,7 +65,6 @@ export const createCollection = async (pool, collection, user) => {
         await conn.beginTransaction();
 
         //verify references
-        //(in parallel)
         await Promise.all(collection.references.map(async reference => {
             const testResult = await conn.query("select reference_no from refs where reference_no = ?", [reference]);
             if (testResult.length === 0) {
@@ -74,17 +73,6 @@ export const createCollection = async (pool, collection, user) => {
                 throw error
             }
         }))
-        /*
-        //(in sqeuence)
-        for await (const reference of collection.references) {
-            const testResult = await conn.query("select reference_no from refs where reference_no = ?", [reference]);
-            if (testResult.length === 0) {
-                const error = new Error(`Unrecognized reference: ${reference}`);
-                error.statusCode = 400
-                throw error
-            }
-        }
-        */
         
         const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
         if (rs.affectedRows !== 1) throw new Error("Could not update person table");        
@@ -111,7 +99,7 @@ export const createCollection = async (pool, collection, user) => {
         collection.collection_no = res[0].collection_no;
         
         for await (const reference of collection.references) {
-            res = await conn.query({
+            await conn.query({
                 namedPlaceholders: true,
                 sql: "replace into secondary_refs (collection_no, reference_no) values (:collection_no, :reference_no)",
             }, {collection_no: collection.collection_no, reference_no: reference});
@@ -134,9 +122,9 @@ export const updateCollection = async (pool, patch, collectionID, user) => {
     logger.trace(user)
     logger.trace(patch);
 
-    const updateAssets = prepareUpdateAssets(patch);
+    const updateAssets = prepareUpdateAssets(patch, ["references"]);
     
-    updateAssets.propStr += `, modifier = :modifier, modifier_no = :modifier_no`
+    updateAssets.propStr += `${updateAssets.propStr === '' ? '': ', '} modifier = :modifier, modifier_no = :modifier_no`
     updateAssets.values.modifier = user.userName; //TODO: consider stripping to first initial
     updateAssets.values.modifier_no = user.userID;
     updateAssets.values.collection_no = collectionID;
@@ -160,25 +148,28 @@ export const updateCollection = async (pool, patch, collectionID, user) => {
         updateAssets.values.coordinate = `POINT(${patch.lat} ${patch.lng})`;
     }
 
-    const updateSQL = `update collections set ${updateAssets.propStr} where collection_no = :collection_no`
-    logger.trace(updateSQL)
-    logger.trace(updateAssets.values)
+    if (patch.references) {
+        updateAssets.propStr += `, reference_no = :reference_no`;
+        updateAssets.values.reference_no = patch.references[0];    
+    }
 
-    //return true;
+    const updateSQL = `update collections set ${updateAssets.propStr} where collection_no = :collection_no`
     
     let conn;
     try {
         conn = await pool.getConnection();
         await conn.beginTransaction();
 
-        //verify reference_no
-        if (patch.reference_no) {
-            const testResult = await conn.query("select reference_no from refs where reference_no = ?", [patch.reference_no]);
-            if (testResult.length === 0) {
-                const error = new Error("Unrecognized reference_no");
-                error.statusCode = 400
-                throw error
-            }
+        //verify references
+        if (patch.references) {
+            await Promise.all(patch.references.map(async reference => {
+                const testResult = await conn.query("select reference_no from refs where reference_no = ?", [reference]);
+                if (testResult.length === 0) {
+                    const error = new Error(`Unrecognized reference: ${reference}`);
+                    error.statusCode = 400
+                    throw error
+                }
+            }))
         }
 
         const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
@@ -188,6 +179,18 @@ export const updateCollection = async (pool, patch, collectionID, user) => {
             namedPlaceholders: true, 
             sql: updateSQL
         }, updateAssets.values);
+
+        if (patch.references) {
+            //secondary_refs updates are all or nothing. First delete current records.
+            await conn.query("delete from secondary_refs where collection_no = ?", [collectionID])
+            //Now recreate based on passed data
+            for await (const reference of patch.references) {
+                await conn.query({
+                    namedPlaceholders: true,
+                    sql: "replace into secondary_refs (collection_no, reference_no) values (:collection_no, :reference_no)",
+                }, {collection_no: collectionID, reference_no: reference});
+            }
+        }
 
         await conn.commit();
         return res;

@@ -19,9 +19,9 @@ export default async function (fastify, opts) {
 			fastify.log.info("collection POST")
 			fastify.log.trace(req.body)
 	
-			await createCollection(fastify.mariadb, req.body.collection, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID})
+			const newCollection = await createCollection(fastify.mariadb, req.body.collection, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID})
 			
-			return {statusCode: 200, msg: "success"}
+			return {statusCode: 200, msg: "collection created", collection: newCollection}
 		}
 	)
 

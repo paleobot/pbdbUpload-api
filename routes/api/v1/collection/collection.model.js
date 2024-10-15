@@ -24,7 +24,7 @@ export const createCollection = async (pool, collection, user) => {
     logger.trace(collection);
     logger.trace(user)
 
-    const insertAssets = prepareInsertAssets(collection);
+    const insertAssets = prepareInsertAssets(collection, ["references"]);
 	insertAssets.propStr += `, enterer, enterer_no, authorizer_no`;
 	insertAssets.valStr += `, :enterer, :enterer_no, :authorizer_no`;
     insertAssets.values.enterer = user.userName; //TODO: consider stripping to first initial
@@ -49,6 +49,12 @@ export const createCollection = async (pool, collection, user) => {
 
     insertAssets.values.coordinate = `POINT(${collection.lat} ${collection.lng})`;
 
+    insertAssets.propStr += `, reference_no`;
+    insertAssets.valStr += `, :reference_no`;
+    insertAssets.values.reference_no = collection.references[0];
+
+    //TODO: insert...returning requires mariadb 10.5
+	//const insertSQL = `insert into collections (${insertAssets.propStr}) values (${insertAssets.valStr}) returning collection_no`
 	const insertSQL = `insert into collections (${insertAssets.propStr}) values (${insertAssets.valStr})`
 	logger.trace(insertSQL)
 	logger.trace(insertAssets.values)
@@ -58,24 +64,61 @@ export const createCollection = async (pool, collection, user) => {
         conn = await pool.getConnection();
         await conn.beginTransaction();
 
-        //verify reference_no
-        const testResult = await conn.query("select reference_no from refs where reference_no = ?", [collection.reference_no]);
-        if (testResult.length === 0) {
-            const error = new Error("Unrecognized reference_no");
+        //verify references
+        //(in parallel)
+        await Promise.all(collection.references.map(async reference => {
+            const testResult = await conn.query("select reference_no from refs where reference_no = ?", [reference]);
+            if (testResult.length === 0) {
+                const error = new Error(`Unrecognized reference: ${reference}`);
+                error.statusCode = 400
+                throw error
+            }
+        }))
+        /*
+        //(in sqeuence)
+        for await (const reference of collection.references) {
+            const testResult = await conn.query("select reference_no from refs where reference_no = ?", [reference]);
+            if (testResult.length === 0) {
+                const error = new Error(`Unrecognized reference: ${reference}`);
+                error.statusCode = 400
+                throw error
+            }
+        }
+        */
+        
+        const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
+        if (rs.affectedRows !== 1) throw new Error("Could not update person table");        
+
+        let res = await conn.query({ 
+            namedPlaceholders: true, 
+            sql: insertSQL
+        }, insertAssets.values);
+        logger.trace("after insert")
+        logger.trace(res)
+
+        //TODO: Until we get mariadb 10.5 and can do insert...returning, 
+        //we have to do this seperate select to get the new collection_no.
+        //Delete when we can. Until then, need to decide what fields to 
+        //query on to ensure we're getting the record just created. 
+        res = await conn.query("select collection_no from collections where collection_name = ?", [collection.collection_name])
+        if (res.length === 0) {
+            const error = new Error(`Could not get collection_no`);
             error.statusCode = 400
             throw error
         }
 
-        const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
-        if (rs.affectedRows !== 1) throw new Error("Could not update person table");
 
-        const res = await conn.query({ 
-            namedPlaceholders: true, 
-            sql: insertSQL
-        }, insertAssets.values);
+        collection.collection_no = res[0].collection_no;
+        
+        for await (const reference of collection.references) {
+            res = await conn.query({
+                namedPlaceholders: true,
+                sql: "replace into secondary_refs (collection_no, reference_no) values (:collection_no, :reference_no)",
+            }, {collection_no: collection.collection_no, reference_no: reference});
+        }
         
         await conn.commit();
-        return res;
+        return collection;
     } catch (err) {
         logger.error("Error loading data, reverting changes: ", err);
         logger.error(err)

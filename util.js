@@ -1,6 +1,6 @@
 import {logger} from './app.js'
 
-export const prepareInsertAssets = (object) => {
+export const prepareInsertAssets = (object, ignore) => {
     logger.trace("prepareInsertAssets")
 
     let properties = Object.keys(object);
@@ -10,6 +10,8 @@ export const prepareInsertAssets = (object) => {
     let valStr = '';
     const values = {};
     properties.forEach((prop, index) => {
+        if (ignore.includes(prop)) return;
+
         propStr += index === 0 ? ` ${prop}` : `, ${prop}`;
         valStr += index === 0 ? `:${prop}` : `, :${prop}`;
         //mariadb values for set types must be properly formatted

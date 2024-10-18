@@ -108,5 +108,26 @@ export default async function (fastify, opts) {
 			}
   		}
 	)
+
+	//TODO: Tabling delete functionality for now. This will be tricky without
+	//foreign key constraints
+	/*
+    fastify.delete(
+		'/:id',
+        {
+			preHandler : fastify.auth([
+				fastify.verifyAuth,
+			]),
+		},
+		async (req, res) => {
+			fastify.log.info("reference DELETE")
+	
+			const deleteReference = await deleteReference(fastify.mariadb, req.params.id, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID})
+			
+			return {statusCode: 200, msg: `reference ${req.params.id} deleted`}
+		}
+	)
+	*/
+
 }
 

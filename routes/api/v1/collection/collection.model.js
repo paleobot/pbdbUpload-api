@@ -1,13 +1,66 @@
 import {prepareInsertAssets, prepareUpdateAssets, calcDegreesMinutesSeconds} from '../../../../util.js'
 import {logger} from '../../../../app.js'
 
+export const isDuplicate = async (pool, collection) => {
+    logger.info("isDuplicate");
+
+    //TODO: Add spatial
+    let conn;
+    try {
+
+        conn = await pool.getConnection();
+        const rows = await conn.query({
+            namedPlaceholders: true,
+            sql:`
+                select 
+                    collection_no 
+                from 
+                    collections 
+                where 
+                    collection_name = :collection_name and
+                    min_interval_no = :min_interval_no and
+                    max_interval_no = :max_interval_no and 
+                    reference_no = :reference_no
+                    ${collection.collection_no ? 
+                        `and collection_no != :collection_no` :
+                        ''
+                    }
+            `
+        }, {
+            collection_name: collection.collection_name, 
+            min_interval_no: collection.min_interval_no || collection.max_interval_no,
+            max_interval_no: collection.max_interval_no,
+            reference_no: collection.references[0],
+            collection_no: collection.collection_no
+        });
+ 
+        return rows.length > 0;
+    } finally {
+            if (conn) conn.release(); //release to pool
+    }   
+}
+
 export const getCollection = async (pool, id) => {
     //logger.info("getCollection");
+
+    /*
+    TODO: We need to include references from secondary_refs in the collection object. To do that we need to do something like:
+        select  
+            c.*,
+            JSON_ARRAYAGG(r.reference_no) as references
+        from 
+            pbdb.collections c,
+            pbdb.secondary_refs r 
+        where 
+            c.collection_no = 235942 and
+            c.collection_no = r.collection_no
+    However JSON_ARRAYAGG is only available in maria 10.5 forward.
+    */
     let conn;
     try {
 
       conn = await pool.getConnection();
-      const rows = await conn.query("SELECT * from collections where collection_no = " + id);
+      const rows = await conn.query("SELECT * from collections where collection_no = ?", [id]);
 
       //Need to convert validating date fields to ISO string
       rows.forEach(row => {

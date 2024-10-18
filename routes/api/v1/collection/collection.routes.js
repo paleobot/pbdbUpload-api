@@ -1,5 +1,5 @@
 import {schema, patchSchema} from './collection.schema.js'
-import {getCollection, createCollection, updateCollection} from './collection.model.js'
+import {getCollection, createCollection, updateCollection, isDuplicate} from './collection.model.js'
 import jmp from 'json-merge-patch'
 
 export default async function (fastify, opts) {
@@ -19,9 +19,18 @@ export default async function (fastify, opts) {
 			fastify.log.info("collection POST")
 			fastify.log.trace(req.body)
 	
-			const newCollection = await createCollection(fastify.mariadb, req.body.collection, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID})
+			if (
+				req.body.allowDuplicate || 
+				!isDuplicate(fastify.mariadb, req.body.collection)
+			) {
+				const newCollection = await createCollection(fastify.mariadb, req.body.collection, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID})
 			
-			return {statusCode: 200, msg: "collection created", collection: newCollection}
+				return {statusCode: 200, msg: "collection created", collection: newCollection}
+			} else {
+                const error = new Error(`Duplicate collection found. If you wish to proceed, resubmit with property allowDuplicate set to true.`);
+                error.statusCode = 400
+                throw error				
+			}
 		}
 	)
 
@@ -63,12 +72,40 @@ export default async function (fastify, opts) {
 				return {statusCode: 400, msg: validate.errors}
 			}
 
-			//if it's good, let the model apply the patch
-			await updateCollection(fastify.mariadb, req.body.collection, req.params.id, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID})
+			if (
+				req.body.allowDuplicate || 
+				!isDuplicate(fastify.mariadb, mergedCollection)
+			) {
+				await updateCollection(fastify.mariadb, req.body.collection, req.params.id, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID})
 
-			return {statusCode: 200, msg: "success"}
+				return {statusCode: 200, msg: "success"}
+			} else {
+                const error = new Error(`Duplicate collection found. If you wish to proceed, resubmit with property allowDuplicate set to true.`);
+                error.statusCode = 400
+                throw error				
+			}
   		}
 	)
+
+	//TODO: Tabling delete functionality for now. This will be tricky without
+	//foreign key constraints
+	/*
+    fastify.delete(
+		'/:id',
+        {
+			preHandler : fastify.auth([
+				fastify.verifyAuth,
+			]),
+		},
+		async (req, res) => {
+			fastify.log.info("collection DELETE")
+	
+			const deleteCollection = await deleteCollection(fastify.mariadb, req.params.id, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID})
+			
+			return {statusCode: 200, msg: `collection ${req.params.id} deleted`}
+		}
+	)
+	*/
 
 }
 

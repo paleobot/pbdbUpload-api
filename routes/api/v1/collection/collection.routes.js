@@ -19,18 +19,9 @@ export default async function (fastify, opts) {
 			fastify.log.info("collection POST")
 			fastify.log.trace(req.body)
 	
-			if (
-				req.body.allowDuplicate || 
-				!isDuplicate(fastify.mariadb, req.body.collection)
-			) {
-				const newCollection = await createCollection(fastify.mariadb, req.body.collection, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID})
-			
-				return {statusCode: 200, msg: "collection created", collection: newCollection}
-			} else {
-                const error = new Error(`Duplicate collection found. If you wish to proceed, resubmit with property allowDuplicate set to true.`);
-                error.statusCode = 400
-                throw error				
-			}
+			const newCollection = await createCollection(fastify.mariadb, req.body.collection, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate)
+		
+			return {statusCode: 200, msg: "collection created", collection: newCollection}
 		}
 	)
 
@@ -72,18 +63,9 @@ export default async function (fastify, opts) {
 				return {statusCode: 400, msg: validate.errors}
 			}
 
-			if (
-				req.body.allowDuplicate || 
-				!isDuplicate(fastify.mariadb, mergedCollection)
-			) {
-				await updateCollection(fastify.mariadb, req.body.collection, req.params.id, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID})
+			await updateCollection(fastify.mariadb, req.body.collection, req.params.id, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate, mergedCollection.collection)
 
-				return {statusCode: 200, msg: "success"}
-			} else {
-                const error = new Error(`Duplicate collection found. If you wish to proceed, resubmit with property allowDuplicate set to true.`);
-                error.statusCode = 400
-                throw error				
-			}
+			return {statusCode: 200, msg: "success"}
   		}
 	)
 

@@ -24,13 +24,41 @@ const isDuplicate = async (conn, collection) => {
         `
     }, {
         collection_name: collection.collection_name, 
-        min_interval_no: collection.min_interval_no || collection.max_interval_no,
+        min_interval_no: collection.min_interval_no,
         max_interval_no: collection.max_interval_no,
         reference_no: collection.references[0],
         collection_no: collection.collection_no
     });
-
+    
     return rows.length > 0;
+}
+
+const verifyReferences = async (conn, references) => {
+    return await Promise.all(references.map(async reference => {
+        const testResult = await conn.query("select reference_no from refs where reference_no = ?", [reference]);
+        if (testResult.length === 0) {
+            const error = new Error(`Unrecognized reference: ${reference}`);
+            error.statusCode = 400
+            throw error
+        }
+    }))
+}
+
+const updatePerson = async (conn, user) => {
+    const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
+    if (rs.affectedRows !== 1) throw new Error("Could not update person table");
+}
+
+const updateReferences = async (conn, collection_no, references) => {
+    for await (const reference of references) {
+        await conn.query({
+            namedPlaceholders: true,
+            sql: "replace into secondary_refs (collection_no, reference_no) values (:collection_no, :reference_no)",
+        }, {
+            collection_no: collection_no, 
+            reference_no: reference
+        });
+    }
 }
 
 export const getCollection = async (pool, id) => {
@@ -69,6 +97,8 @@ export const createCollection = async (pool, collection, user, allowDuplicate) =
     logger.info("createCollection");
     logger.trace(collection);
     logger.trace(user)
+
+    collection.min_interval_no = collection.min_interval_no || collection.max_interval_no;
 
     const insertAssets = prepareInsertAssets(collection, ["references"]);
 	insertAssets.propStr += `, enterer, enterer_no, authorizer_no`;
@@ -112,20 +142,12 @@ export const createCollection = async (pool, collection, user, allowDuplicate) =
 
         if (
             allowDuplicate || 
-            !isDuplicate(conn, collection)
+            ! await isDuplicate(conn, collection)
         ) {
             //verify references
-            await Promise.all(collection.references.map(async reference => {
-                const testResult = await conn.query("select reference_no from refs where reference_no = ?", [reference]);
-                if (testResult.length === 0) {
-                    const error = new Error(`Unrecognized reference: ${reference}`);
-                    error.statusCode = 400
-                    throw error
-                }
-            }))
+            await verifyReferences(conn, collection.references);
             
-            const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
-            if (rs.affectedRows !== 1) throw new Error("Could not update person table");        
+           await updatePerson(conn, user);
 
             let res = await conn.query({ 
                 namedPlaceholders: true, 
@@ -148,12 +170,7 @@ export const createCollection = async (pool, collection, user, allowDuplicate) =
 
             collection.collection_no = res[0].collection_no;
             
-            for await (const reference of collection.references) {
-                await conn.query({
-                    namedPlaceholders: true,
-                    sql: "replace into secondary_refs (collection_no, reference_no) values (:collection_no, :reference_no)",
-                }, {collection_no: collection.collection_no, reference_no: reference});
-            }
+            await updateReferences(conn, collection.collection_no, collection.references)
             
             await conn.commit();
             return collection;
@@ -173,17 +190,18 @@ export const createCollection = async (pool, collection, user, allowDuplicate) =
     }
 }
 
-export const updateCollection = async (pool, patch, collectionID, user, allowDuplicate, mergedCollection) => {
+export const updateCollection = async (pool, patch, user, allowDuplicate, mergedCollection) => {
     logger.info("updateCollection");
     logger.trace(user)
     logger.trace(patch);
+    logger.trace(mergedCollection)
 
     const updateAssets = prepareUpdateAssets(patch, ["references"]);
     
     updateAssets.propStr += `${updateAssets.propStr === '' ? '': ', '} modifier = :modifier, modifier_no = :modifier_no`
     updateAssets.values.modifier = user.userName; //TODO: consider stripping to first initial
     updateAssets.values.modifier_no = user.userID;
-    updateAssets.values.collection_no = collectionID;
+    updateAssets.values.collection_no = mergedCollection.collection_no;
 
     //derived properties
     if (patch.lat && patch.lng) {
@@ -218,23 +236,15 @@ export const updateCollection = async (pool, patch, collectionID, user, allowDup
 
         if (
             allowDuplicate || 
-            !isDuplicate(conn, mergedCollection)
+            ! await isDuplicate(conn, mergedCollection)
         ) {
 
             //verify references
             if (patch.references) {
-                await Promise.all(patch.references.map(async reference => {
-                    const testResult = await conn.query("select reference_no from refs where reference_no = ?", [reference]);
-                    if (testResult.length === 0) {
-                        const error = new Error(`Unrecognized reference: ${reference}`);
-                        error.statusCode = 400
-                        throw error
-                    }
-                }))
+                await verifyReferences(conn, patch.references);
             }
 
-            const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
-            if (rs.affectedRows !== 1) throw new Error("Could not update person table");
+            await updatePerson(conn, user);
 
             const res = await conn.query({ 
                 namedPlaceholders: true, 
@@ -243,14 +253,9 @@ export const updateCollection = async (pool, patch, collectionID, user, allowDup
 
             if (patch.references) {
                 //secondary_refs updates are all or nothing. First delete current records.
-                await conn.query("delete from secondary_refs where collection_no = ?", [collectionID])
+                await conn.query("delete from secondary_refs where collection_no = ?", [mergedCollection.collection_no])
                 //Now recreate based on passed data
-                for await (const reference of patch.references) {
-                    await conn.query({
-                        namedPlaceholders: true,
-                        sql: "replace into secondary_refs (collection_no, reference_no) values (:collection_no, :reference_no)",
-                    }, {collection_no: collectionID, reference_no: reference});
-                }
+                await updateReferences(conn, mergedCollection.collection_no, patch.references)
             }
 
             await conn.commit();

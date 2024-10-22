@@ -3,14 +3,13 @@ import {logger} from './app.js'
 export const prepareInsertAssets = (object, ignore = []) => {
     logger.trace("prepareInsertAssets")
 
-    let properties = Object.keys(object);
-    logger.trace(properties)
+    let properties = Object.keys(object).filter(key => !ignore.includes(key));
+    logger.info(properties)
 
     let propStr = '';
     let valStr = '';
     const values = {};
     properties.forEach((prop, index) => {
-        if (ignore.includes(prop)) return;
 
         propStr += index === 0 ? ` ${prop}` : `, ${prop}`;
         valStr += index === 0 ? `:${prop}` : `, :${prop}`;
@@ -34,13 +33,12 @@ export const prepareInsertAssets = (object, ignore = []) => {
 export const prepareUpdateAssets = (object, ignore = []) => {
     logger.trace("prepareUpdateAssets")
 
-    let properties = Object.keys(object);
+    let properties = Object.keys(object).filter(key => !ignore.includes(key));
     logger.trace(properties)
 
     let propStr = '';
     const values = {};
     properties.forEach((prop, index) => {
-        if (ignore.includes(prop)) return;
 
         propStr += index === 0 ? ` ${prop} = :${prop}` : `, ${prop} = :${prop}`;
         //mariadb values for set types must be properly formatted

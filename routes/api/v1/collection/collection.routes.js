@@ -1,5 +1,5 @@
 import {schema, patchSchema} from './collection.schema.js'
-import {getCollection, createCollection, updateCollection, isDuplicate} from './collection.model.js'
+import {getCollection, createCollection, updateCollection} from './collection.model.js'
 import jmp from 'json-merge-patch'
 
 export default async function (fastify, opts) {
@@ -63,7 +63,13 @@ export default async function (fastify, opts) {
 				return {statusCode: 400, msg: validate.errors}
 			}
 
-			await updateCollection(fastify.mariadb, req.body.collection, req.params.id, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate, mergedCollection.collection)
+			//Need to re-add collection_no after validation because fastify sets removeAdditional to true, which removes properties that aren't in validation schema. But model needs it.
+			mergedCollection.collection.collection_no = req.params.id;
+			fastify.log.info("mergedCollection after validation(collection_no added")
+			fastify.log.info(mergedCollection)
+
+
+			await updateCollection(fastify.mariadb, req.body.collection, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate, mergedCollection.collection)
 
 			return {statusCode: 200, msg: "success"}
   		}

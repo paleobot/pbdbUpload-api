@@ -68,7 +68,6 @@ export default async function (fastify, opts) {
 			fastify.log.info("mergedCollection after validation(collection_no added")
 			fastify.log.info(mergedCollection)
 
-
 			await updateCollection(fastify.mariadb, req.body.collection, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate, mergedCollection.collection)
 
 			return {statusCode: 200, msg: "success"}

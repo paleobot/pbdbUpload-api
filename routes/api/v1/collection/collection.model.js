@@ -62,26 +62,25 @@ const updateReferences = async (conn, collection_no, references) => {
 }
 
 export const getCollection = async (pool, id) => {
-    //logger.info("getCollection");
+    logger.info("getCollection");
 
-    /*
-    TODO: We need to include references from secondary_refs in the collection object. To do that we need to do something like:
-        select  
-            c.*,
-            JSON_ARRAYAGG(r.reference_no) as references
-        from 
-            pbdb.collections c,
-            pbdb.secondary_refs r 
-        where 
-            c.collection_no = 235942 and
-            c.collection_no = r.collection_no
-    However JSON_ARRAYAGG is only available in maria 10.5 forward.
-    */
     let conn;
     try {
 
       conn = await pool.getConnection();
-      const rows = await conn.query("SELECT * from collections where collection_no = ?", [id]);
+      const rows = await conn.query(`
+        select  
+            c.*,
+            JSON_ARRAYAGG(r.reference_no) as 'references'
+        from 
+            collections c,
+            secondary_refs r 
+        where 
+            c.collection_no = ? and
+            c.collection_no = r.collection_no
+      `, [id])
+
+      logger.trace(rows)
 
       //Need to convert validating date fields to ISO string
       rows.forEach(row => {
@@ -129,9 +128,7 @@ export const createCollection = async (pool, collection, user, allowDuplicate) =
     insertAssets.valStr += `, :reference_no`;
     insertAssets.values.reference_no = collection.references[0];
 
-    //TODO: insert...returning requires mariadb 10.5
-	//const insertSQL = `insert into collections (${insertAssets.propStr}) values (${insertAssets.valStr}) returning collection_no`
-	const insertSQL = `insert into collections (${insertAssets.propStr}) values (${insertAssets.valStr})`
+	const insertSQL = `insert into collections (${insertAssets.propStr}) values (${insertAssets.valStr}) returning collection_no`
 	logger.trace(insertSQL)
 	logger.trace(insertAssets.values)
 
@@ -155,18 +152,7 @@ export const createCollection = async (pool, collection, user, allowDuplicate) =
             }, insertAssets.values);
             logger.trace("after insert")
             logger.trace(res)
-
-            //TODO: Until we get mariadb 10.5 and can do insert...returning, 
-            //we have to do this seperate select to get the new collection_no.
-            //Delete when we can. Until then, need to decide what fields to 
-            //query on to ensure we're getting the record just created. 
-            res = await conn.query("select collection_no from collections where collection_name = ?", [collection.collection_name])
-            if (res.length === 0) {
-                const error = new Error(`Could not get collection_no`);
-                error.statusCode = 400
-                throw error
-            }
-
+            logger.trace(res[0].collection_no)
 
             collection.collection_no = res[0].collection_no;
             

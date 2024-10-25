@@ -1,6 +1,40 @@
 import {prepareInsertAssets, prepareUpdateAssets} from '../../../../util.js'
+import {logger} from '../../../../app.js'
 
-export const getReferences = async (pool, limit, offset, fastify) => {
+const isDuplicate = async (conn, reference) => {
+    logger.info("isDuplicate");
+
+    //TODO: Add spatial
+    const rows = await conn.query({
+        namedPlaceholders: true,
+        sql:`
+            select 
+                reference_no 
+            from 
+                refs 
+            where 
+                reftitle = :reftitle and
+                pubyr = :pubyr
+                ${reference.reference_no ? 
+                    `and reference_no != :reference_no` :
+                    ''
+                }
+        `
+    }, {
+        reftitle: reference.reftitle, 
+        pubyr: reference.pubyr,
+        reference_no: reference.reference_no,
+    });
+    
+    return rows.length > 0;
+}
+
+const updatePerson = async (conn, user) => {
+    const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
+    if (rs.affectedRows !== 1) throw new Error("Could not update person table");
+}
+
+export const getReferences = async (pool, limit, offset) => {
     //logger.info("getReferences");
     let conn;
     try {
@@ -11,9 +45,9 @@ export const getReferences = async (pool, limit, offset, fastify) => {
       sql = offset ? `${sql} offset ${offset}` : sql;
       const count = await conn.query(countsql);
       const rows = await conn.query(sql);
-      fastify.log.trace(rows);
-      fastify.log.trace(count);
-      fastify.log.trace(count.count);
+      logger.trace(rows);
+      logger.trace(count);
+      logger.trace(count.count);
       return {
         refs: rows,
         count: count[0].count
@@ -35,9 +69,9 @@ export const getReference = async (pool, id) => {
     }
 }
 
-export const createReference = async (pool, reference, user, fastify) => {
-    fastify.log.info("createReference");
-    fastify.log.trace(reference);
+export const createReference = async (pool, reference, user, allowDuplicate) => {
+    logger.info("createReference");
+    logger.trace(reference);
 	
     const insertAssets = prepareInsertAssets(reference);
 	insertAssets.propStr += `, enterer, enterer_no, authorizer_no`;
@@ -46,37 +80,49 @@ export const createReference = async (pool, reference, user, fastify) => {
     insertAssets.values.enterer_no = user.userID;
     insertAssets.values.authorizer_no = user.authorizerID;
 
-	const insertSQL = `insert into refs (${insertAssets.propStr}) values (${insertAssets.valStr})`
-	fastify.log.trace(insertSQL)
-	fastify.log.trace(insertAssets.values)
+	const insertSQL = `insert into refs (${insertAssets.propStr}) values (${insertAssets.valStr}) returning reference_no`
+	logger.trace(insertSQL)
+	logger.trace(insertAssets.values)
 
     let conn;
     try {
         conn = await pool.getConnection();
         await conn.beginTransaction();
 
-        const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
-        if (rs.affectedRows !== 1) throw new Error("Could not update person table");
+        if (
+            allowDuplicate || 
+            ! await isDuplicate(conn, reference)
+        ) {
+            await updatePerson(conn, user);
 
-        const res = await conn.query({ 
-            namedPlaceholders: true, 
-            sql: insertSQL
-        }, insertAssets.values);
+            const res = await conn.query({ 
+                namedPlaceholders: true, 
+                sql: insertSQL
+            }, insertAssets.values);
 
-        await conn.commit();
-        return res;
+            reference.reference_no = res[0].reference_no;
+
+            await conn.commit();
+            return reference;
+        } else {
+            const error = new Error(`Duplicate reference found. If you wish to proceed, resubmit with property allowDuplicate set to true.`);
+            error.statusCode = 400
+            throw error				
+        }
     } catch (err) {
-        fastify.log.error("Error loading data, reverting changes: ", err);
+        logger.error("Error loading data, reverting changes: ", err);
+        logger.error(err)
         await conn.rollback();
+        throw err
     } finally {
         if (conn) conn.release(); 
     }
 }
 
-export const updateReference = async (pool, patch, referenceID, user, fastify) => {
-    fastify.log.info("updateReference");
-    fastify.log.trace(user)
-    fastify.log.trace(patch);
+export const updateReference = async (pool, patch, referenceID, user, allowDuplicate, mergedReference) => {
+    logger.info("updateReference");
+    logger.trace(user)
+    logger.trace(patch);
 
     const updateAssets = prepareUpdateAssets(patch);
     updateAssets.propStr += `, modifier = :modifier, modifier_no = :modifier_no`
@@ -85,8 +131,8 @@ export const updateReference = async (pool, patch, referenceID, user, fastify) =
     updateAssets.values.reference_no = referenceID;
     
     const updateSQL = `update refs set ${updateAssets.propStr} where reference_no = :reference_no`
-    fastify.log.trace(updateSQL)
-    fastify.log.trace(updateAssets.values)
+    logger.trace(updateSQL)
+    logger.trace(updateAssets.values)
 
     //return true;
     
@@ -95,19 +141,29 @@ export const updateReference = async (pool, patch, referenceID, user, fastify) =
         conn = await pool.getConnection();
         await conn.beginTransaction();
 
-        const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
-        if (rs.affectedRows !== 1) throw new Error("Could not update person table");
+        if (
+            allowDuplicate || 
+            ! await isDuplicate(conn, mergedReference)
+        ) {
 
-        const res = await conn.query({ 
-            namedPlaceholders: true, 
-            sql: updateSQL
-        }, updateAssets.values);
+            await updatePerson(conn, user);
 
-        await conn.commit();
-        return res;
+            const res = await conn.query({ 
+                namedPlaceholders: true, 
+                sql: updateSQL
+            }, updateAssets.values);
+
+            await conn.commit();
+            return res;
+        } else {
+            const error = new Error(`Duplicate reference found. If you wish to proceed, resubmit with property allowDuplicate set to true.`);
+            error.statusCode = 400
+            throw error				
+        }
     } catch (err) {
-        fastify.log.error("Error loading data, reverting changes: ", err);
+        logger.error("Error loading data, reverting changes: ", err);
         await conn.rollback();
+        throw err
     } finally {
         if (conn) conn.release(); 
     }

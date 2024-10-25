@@ -144,7 +144,7 @@ export const createCollection = async (pool, collection, user, allowDuplicate) =
             //verify references
             await verifyReferences(conn, collection.references);
             
-           await updatePerson(conn, user);
+            await updatePerson(conn, user);
 
             let res = await conn.query({ 
                 namedPlaceholders: true, 

@@ -50,16 +50,13 @@ export default async function (fastify, opts) {
 		  	schema: schema
 		},
 		async (req, res) => {
-		  fastify.log.info("reference POST")
-		  fastify.log.trace(req.body)
-  
-		  if (await createReference(fastify.mariadb, req.body.reference, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, fastify)) {
-			  //res.send('success');
-			  return {statusCode: 200, msg: "success"}
-		  } else {
-			  //res.send('failure');
-			  return {statusCode: 500, msg: "failure"}
-		  }
+			fastify.log.info("reference POST")
+			fastify.log.trace(req.body)
+	
+			const newReference = await createReference(fastify.mariadb, req.body.reference, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate)
+
+			return {statusCode: 200, msg: "reference created", reference: newReference}
+
 	})
 
 	/*
@@ -86,26 +83,27 @@ export default async function (fastify, opts) {
 			fastify.log.trace(ref)
 
 			//merge with patch in req.body 
-			const mergedRef = jmp.apply(ref, req.body)
+			const mergedReference = jmp.apply(ref, req.body)
 			fastify.log.trace("after merge")
-			fastify.log.trace(mergedRef)
+			fastify.log.trace(mergedReference)
 
 			//create a validator
 			const validate = req.compileValidationSchema(schema.body);
 
 			//validate the merged reference
-			if (!validate(mergedRef)) {
+			if (!validate(mergedReference)) {
 				fastify.log.error("validation error")
 				fastify.log.trace(validate.errors);
 				return {statusCode: 400, msg: validate.errors}
 			}
 
+			//Need to re-add reference_no after validation because fastify sets removeAdditional to true, which removes properties that aren't in validation schema. But model needs it.
+			mergedReference.reference.reference_no = req.params.id;
+
 			//if it's good, let the model apply the patch
-			if (await updateReference(fastify.mariadb, req.body.reference, req.params.id, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, fastify)) {
-				return {statusCode: 200, msg: "success"}
-			} else {
-				return {statusCode: 500, msg: "failure"}
-			}
+			await updateReference(fastify.mariadb, req.body.reference, req.params.id, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate, mergedReference.reference)
+
+			return {statusCode: 200, msg: "success"}
   		}
 	)
 

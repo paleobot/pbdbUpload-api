@@ -2,6 +2,26 @@
 Validation schemas in JSON Schema format. Note that fastify uses ajv (https://ajv.js.org/) for validation, which expects the schemas to be javascript objects rather than raw JSON. Consequently, property names (keys) do not require double quotes.
 */
 
+export const patchSchema = {
+    body: {
+		examples: [{
+			reference:{pubyr:"2021" }	
+		}],
+	},
+	response: {
+		204: {
+			description: 'Reference modified',
+			type: 'object',
+			properties: {
+				statusCode: {type: "integer"},
+				msg: {type: "string"},
+			}
+		},	
+	}
+}
+
+
+
 const journalArticle = 	{
 	if: {
 		properties: {
@@ -153,7 +173,38 @@ export const schema = {
 					editedCollection,
 				],
 			}
-      	}
+      	},
+		examples: [{
+			reference: {
+				publication_type: "unpublished", 
+				reftitle: "The reference title", 
+				author1init: "D", 
+				author1last: "Meredith", 
+				pubyr: "2024",
+				firstpage: "1", 
+				pubtitle: "A publication title ", 
+				pubvol:"5" 
+			}
+		}],
+	},
+	response: {
+		201: {
+			description: "Reference created",
+			type: "object",
+			properties: {
+				statusCode: {type: "integer"},
+				msg: {type: "string"},
+			  	collection_no: {type: "integer"}
+			}
+		},
+		400: {
+			description: "Bad request",
+			type: "object",
+			properties: {
+				statusCode: {type: "integer"},
+				msg: {type: "string"},
+			}
+		}	
 	}
 }
 

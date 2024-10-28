@@ -17,7 +17,24 @@ export const patchSchema = {
 					lng: ["lat"],
 				}
 			}
-		}
+		},
+		examples: [{
+			collection: {
+				references: [
+					5001
+				] 
+			}		
+		}],
+	},
+	response: {
+		204: {
+			description: 'Collection modified',
+			type: 'object',
+			properties: {
+				statusCode: {type: "integer"},
+				msg: {type: "string"},
+			}
+		  },	
 	}
 }
 
@@ -401,6 +418,42 @@ export const schema = {
                     "pres_mode"
                 ],
 			}
-      	}
-    }
+      	},
+		examples: [{
+			collection:{
+				references: [5000], 
+				access_level: "the public", 
+				release_date: "2024-10-02 00:00:00.000Z", 
+				collection_name: "ddm-2024-10-2a", 
+				collection_type: "paleoecologic", 
+				country: "USA", 
+				state: "AZ", 
+				lat:32.2540, 
+				lng:-110.9742, 
+				max_interval_no: 15, 
+				lithology1:"\"siliciclastic\"", 
+				environment: "peritidal", 
+				pres_mode:["concretion"] 
+			}
+		}],
+	},
+	response: {
+		201: {
+			description: "Collection created",
+			type: "object",
+			properties: {
+				statusCode: {type: "integer"},
+				msg: {type: "string"},
+			  	collection_no: {type: "integer"}
+			}
+		},
+		400: {
+			description: "Bad request",
+			type: "object",
+			properties: {
+				statusCode: {type: "integer"},
+				msg: {type: "string"},
+			}
+		}	
+	}
 }

@@ -21,7 +21,7 @@ export default async function (fastify, opts) {
 	
 			const newCollection = await createCollection(fastify.mariadb, req.body.collection, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate)
 		
-			return {statusCode: 200, msg: "collection created", collection: newCollection}
+			return {statusCode: 201, msg: "collection created", collection_no: newCollection.collection_no}
 		}
 	)
 
@@ -70,7 +70,7 @@ export default async function (fastify, opts) {
 
 			await updateCollection(fastify.mariadb, req.body.collection, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate, mergedCollection.collection)
 
-			return {statusCode: 200, msg: "success"}
+			return {statusCode: 204, msg: "Collection modified"}
   		}
 	)
 

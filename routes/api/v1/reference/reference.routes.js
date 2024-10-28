@@ -1,5 +1,5 @@
 import {getReferences, getReference, createReference, updateReference} from './reference.model.js'
-import {schema} from './reference.schema.js'
+import {schema, patchSchema} from './reference.schema.js'
 import jmp from 'json-merge-patch'
 
 export default async function (fastify, opts) {
@@ -55,7 +55,7 @@ export default async function (fastify, opts) {
 	
 			const newReference = await createReference(fastify.mariadb, req.body.reference, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate)
 
-			return {statusCode: 200, msg: "reference created", reference: newReference}
+			return {statusCode: 201, msg: "reference created", reference_no: newReference.reference_no}
 
 	})
 
@@ -68,7 +68,7 @@ export default async function (fastify, opts) {
 			preHandler : fastify.auth([
 				fastify.verifyAuth,
 			]),
-			//validation is handled below
+			schema: patchSchema
 		},
 		async (req, res) => {
 		  	fastify.log.info("reference PATCH")
@@ -103,7 +103,7 @@ export default async function (fastify, opts) {
 			//if it's good, let the model apply the patch
 			await updateReference(fastify.mariadb, req.body.reference, req.params.id, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate, mergedReference.reference)
 
-			return {statusCode: 200, msg: "success"}
+			return {statusCode: 204, msg: "Reference modified"}
   		}
 	)
 

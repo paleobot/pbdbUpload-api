@@ -2,7 +2,8 @@ import path from 'path'
 import AutoLoad from '@fastify/autoload'
 import url, { fileURLToPath } from 'url'
 import mariadb from 'fastify-mariadb'
-//import swagger from '@fastify/swagger'
+import swagger from '@fastify/swagger'
+import swaggerUI from "@fastify/swagger-ui";
 import cookie from '@fastify/cookie'
 import auth from '@fastify/auth'
 
@@ -113,24 +114,28 @@ export default async function (fastify, opts) {
 		return navLinks;
 	})
 	
-	/*
+	
 	await fastify.register(swagger, {
 		openapi: {
 		  openapi: '3.0.0',
 		  info: {
-			title: 'Test swagger',
-			description: 'Testing the Fastify swagger API',
+			title: 'PBDB Upload API',
+			description: 'API for uploading content to the Paleobiology Database',
 			version: '0.1.0'
 		  }
 		}
 	})
-	*/
 	
+	fastify.register(swaggerUI, {
+		routePrefix: "/api-docs",
+	});
+
 	fastify.register(mariadb, {
 		promise: true,
 		//TODO:  get host from .env and make it dependent on run variable.
 		//Note: This works if host.docker.internal is added to docker run in vscode settings
-		host: 'host.docker.internal',//'localhost',
+		host: 'localhost',
+		//host: 'host.docker.internal',
 		user: 'pbdbuser',
 		password: 'pbdbpwd',
 		database: 'pbdb',

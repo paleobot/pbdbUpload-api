@@ -48,6 +48,7 @@ const book = {
 	if: {
 		properties: {
 			publication_type: {
+				type: "string",
 				enum: [
 					"book",
 					"serial monograph",
@@ -114,48 +115,104 @@ const editedCollection = {
 	},
 }
 
+const referenceProperties = {
+	publication_type: { 
+		description: `
+		Fields and requirements are added based on the value of this field. Unfortunately, proper documentation of these is not automatically generated. 
+			journal article: 
+				pubtitle: {type: "string"}, required
+				pubvol: {type: "string"}, required
+				pubno: {type: "string"}, required
+			book, 
+			serial monograph, 
+			compendium, 
+			Ph.D. thesis, 
+			M.S. thesis, 
+			guidebook:
+				publisher: {type: "string"}, required
+			book chapter:
+				pubtitle: {type: "string"}, required
+				publisher: {type: "string"}, required
+				editors: {type: "string"}, required
+			book/book chapter:
+				publisher: {type: "string"}, required
+				editors: {type: "string"}, required
+		`,
+		type: "string",
+		enum: ["journal article","book","book chapter","book/book chapter","serial monograph","compendium","Ph.D. thesis","M.S. thesis","abstract","guidebook","news article","unpublished"]
+	},
+	reftitle: {type: "string"},
+	author1init: {type: "string"},
+	author1last: {type: "string"},
+	author2init: {type: "string"},
+	author2last: {type: "string"},
+	otherauthors: {type: "string"},
+	pubyr: {type: "string"},
+	firstpage: {type: "string"},
+	lastpage: {type: "string"},
+	doi: {type: "string"},
+	language: {
+		type: "string",
+		enum: ['Chinese','English','French','German','Italian','Japanese','Portugese','Russian','Spanish','other','unknown'],
+		default: "English"
+	},
+	comments: {type: "string"},
+	upload: {
+		type: "string",
+		enum: ['','YES']
+	},
+	classification_quality: {
+		type: "string",
+		enum: ['authoritative','standard','compendium']
+	},
+	basis: {
+		type: "string",
+		enum: ['','stated with evidence','stated without evidence','second hand','none discussed','not entered']
+	},
+	project_name: {
+		type: "array",
+		items: {
+			type: "string",
+			enum: ['decapod','ETE','5%','1%','PACED','PGAP','fossil record']
+		}
+	}
 
-export const schema = {
+}
+
+export const editSchema = {
     body: {
 		type: 'object',
 		properties: {
 			reference: {
 				type: "object",
-				properties: {
-					publication_type: { 
-						enum: ["journal article","book","book chapter","book/book chapter","serial monograph","compendium","Ph.D. thesis","M.S. thesis","abstract","guidebook","news article","unpublished"]
-					},
-					reftitle: {type: "string"},
-					author1init: {type: "string"},
-					author1last: {type: "string"},
-					author2init: {type: "string"},
-					author2last: {type: "string"},
-					otherauthors: {type: "string"},
-					pubyr: {type: "string"},
-					firstpage: {type: "string"},
-					lastpage: {type: "string"},
-					doi: {type: "string"},
-					language: {
-						enum: ['Chinese','English','French','German','Italian','Japanese','Portugese','Russian','Spanish','other','unknown'],
-						default: "English"
-					},
-					comments: {type: "string"},
-					upload: {
-						enum: ['','YES']
-					},
-					classification_quality: {
-						enum: ['authoritative','standard','compendium']
-					},
-					basis: {
-						enum: ['','stated with evidence','stated without evidence','second hand','none discussed','not entered']
-					},
-					project_name: {
-						type: "array",
-						items: {
-							enum: ['decapod','ETE','5%','1%','PACED','PGAP','fossil record']
-						}
-					}
-				},
+				properties: referenceProperties,
+				//TODO: Would like to catch these here and generate validation error. Unfortunately, fastify also sets removeAdditional by default, which quietly removes them instead. To change this, would have to move away from fastify-cli (https://github.com/fastify/fastify-cli?tab=readme-ov-file#migrating-out-of-fastify-cli-start)
+				additionalProperties: false,
+			}
+		},
+		examples: [{
+			reference:{pubyr:"2021" }	
+		}],
+	},
+	response: {
+		204: {
+			description: 'Reference modified',
+			type: 'object',
+			properties: {
+				statusCode: {type: "integer"},
+				msg: {type: "string"},
+			}
+		},	
+	}
+}
+
+export const createSchema = {
+    body: {
+		type: 'object',
+		properties: {
+			reference: {
+				type: "object",
+				properties: referenceProperties,
 				//TODO: Would like to catch these here and generate validation error. Unfortunately, fastify also sets removeAdditional by default, which quietly removes them instead. To change this, would have to move away from fastify-cli (https://github.com/fastify/fastify-cli?tab=readme-ov-file#migrating-out-of-fastify-cli-start)
 				additionalProperties: false,
 				required: [

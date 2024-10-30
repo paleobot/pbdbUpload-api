@@ -41,6 +41,7 @@ export const patchSchema = {
 const collectionProperties = {
 	collection_name: {type: "string"},
 	collection_type: {
+		type: "string",
 		enum: ['archaeological','biostratigraphic','paleoecologic','taphonomic','taxonomic','general faunal/floral'],
 	},
 	references: {
@@ -133,7 +134,6 @@ const collectionProperties = {
 	lithology1: {
 		type: "string",
 		enum: ['not reported','"siliciclastic"','claystone','mudstone','"shale"','siltstone','sandstone','gravel','conglomerate','breccia','"mixed carbonate-siliciclastic"','marl','lime mudstone','chalk','travertine','wackestone','packstone','grainstone','"reef rocks"','floatstone','rudstone','bafflestone','bindstone','framestone','"limestone"','dolomite','"carbonate"','calcareous ooze','chert','diatomite','silicious ooze','radiolarite','amber','coal','peat','lignite','subbituminous coal','bituminous coal','anthracite','coal ball','tar','evaporite','gypsum','phosphorite','pyrite','ironstone','siderite','phyllite','slate','schist','quartzite','"volcaniclastic"','ash','tuff'],
-		default: "English"
 	},
 	lithdescript: {type: "string"},	
 	lithadj: {
@@ -459,7 +459,23 @@ const collectionProperties = {
 	},				
 }
 
+export const getSchema = {
+	tags:["Collection"],
+	response: {
+		501: {
+			description: 'Not implemented',
+			type: 'object',
+			properties: {
+				statusCode: {type: "integer"},
+				msg: {type: "string"} 
+			}
+		  },	
+	}
+
+}
+
 export const editSchema = {
+	tags:["Collection"],
     body: {
 		type: "object",
 		properties: {
@@ -489,6 +505,7 @@ export const editSchema = {
 }
 
 export const createSchema = {
+	tags:["Collection"],
     body: {
 		type: "object",
 		properties: {

@@ -1,15 +1,16 @@
-import {createSchema, editSchema} from './collection.schema.js'
+import {createSchema, editSchema, getSchema} from './collection.schema.js'
 import {getCollection, createCollection, updateCollection} from './collection.model.js'
 import jmp from 'json-merge-patch'
 
 export default async function (fastify, opts) {
-    fastify.get('/', async function (request, reply) {
-      return { msg: "collection routes not yet implemented" }
+    fastify.get('/', {schema: getSchema}, async function (request, reply) {
+      return { statusCode: 501, msg: "collection get not implemented" }
     })
 
-	fastify.get('/:id', async (request, reply) => {
-		const collections = await getCollection(fastify.mariadb, request.params.id);
-		reply.send(collections);
+	fastify.get('/:id', {schema: getSchema}, async (request, reply) => {
+		//const collections = await getCollection(fastify.mariadb, request.params.id);
+		//reply.send(collections);
+		return { statusCode: 501, msg: "collection get not implemented" }
 	})
 
 

@@ -190,22 +190,25 @@ export const updateCollection = async (pool, patch, user, allowDuplicate, merged
     updateAssets.values.collection_no = mergedCollection.collection_no;
 
     //derived properties
-    if (patch.lat && patch.lng) {
+    if (patch.lat || patch.lng) {
         updateAssets.propStr += `, latdir = :latdir, latdeg = :latdeg, latmin = :latmin, latsec = :latsec, lngdir = :lngdir, lngdeg = :lngdeg, lngmin = :lngmin, lngsec = :lngsec, coordinate = (PointFromText(:coordinate))`;
         
-        const latDeg = calcDegreesMinutesSeconds(patch.lat)
+        const lat = patch.lat || mergedCollection.lat;
+        const lon = patch.lng || mergedCollection.lng;
+
+        const latDeg = calcDegreesMinutesSeconds(lat)
         updateAssets.values.latdir = patch.lat >= 0 ? "North" : "South";
         updateAssets.values.latdeg = latDeg.degrees;
         updateAssets.values.latmin = latDeg.minutes;
         updateAssets.values.latsec = latDeg.seconds;
         
-        const lonDeg = calcDegreesMinutesSeconds(patch.lng)
+        const lonDeg = calcDegreesMinutesSeconds(lon)
         updateAssets.values.lngdir = patch.lng >= 0 ? "East" : "West";
         updateAssets.values.lngdeg = lonDeg.degrees;
         updateAssets.values.lngmin = lonDeg.minutes;
         updateAssets.values.lngsec = lonDeg.seconds;
 
-        updateAssets.values.coordinate = `POINT(${patch.lat} ${patch.lng})`;
+        updateAssets.values.coordinate = `POINT(${lat} ${lon})`;
     }
 
     if (patch.references) {

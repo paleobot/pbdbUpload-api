@@ -6,6 +6,7 @@ import swagger from '@fastify/swagger'
 import swaggerUI from "@fastify/swagger-ui";
 import cookie from '@fastify/cookie'
 import auth from '@fastify/auth'
+import fs from 'fs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -116,6 +117,7 @@ export default async function (fastify, opts) {
 	
 	
 	await fastify.register(swagger, {
+		/*
 		openapi: {
 		  openapi: '3.0.0',
 		  info: {
@@ -124,10 +126,38 @@ export default async function (fastify, opts) {
 			version: '0.1.0'
 		  }
 		}
+		*/
+		swagger: {
+			info: {
+				title: 'PBDB Upload API',
+				description: 'API for uploading content to the Paleobiology Database',
+				version: '0.1.0'
+			}
+		}
+			
 	})
+	
+	const image = fs.readFileSync('images/logo_grey.png', {encoding: 'base64'});
 	
 	fastify.register(swaggerUI, {
 		routePrefix: "/api-docs",
+		logo: {
+			type: 'image/png',
+			content: Buffer.from(image, 'base64'),
+			href: '/api-docs',
+			target: '_blank'
+		},
+		theme: {
+			title: "PBDB upload API documentation",
+			favicon: [{
+				filename: 'logo_grey.png',
+				rel: 'icon',
+				sizes: '16x16',
+				type: 'image/png',
+				content: Buffer.from(image, 'base64')
+			}]
+		}
+		
 	});
 
 	fastify.register(mariadb, {

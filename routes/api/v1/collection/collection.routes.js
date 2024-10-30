@@ -1,4 +1,4 @@
-import {schema, patchSchema} from './collection.schema.js'
+import {createSchema, editSchema} from './collection.schema.js'
 import {getCollection, createCollection, updateCollection} from './collection.model.js'
 import jmp from 'json-merge-patch'
 
@@ -7,13 +7,30 @@ export default async function (fastify, opts) {
       return { msg: "collection routes not yet implemented" }
     })
 
+	fastify.get('/:id', async (request, reply) => {
+		const collections = await getCollection(fastify.mariadb, request.params.id);
+		reply.send(collections);
+	})
+
+
+	/*
+	Swagger UI needs this syntax if using OpenAPI 3. Then have to use a $ref to access it in the route definition. Couldn't get this to work well, so I'm using OpenAPI 2. Leaving this here as a reminder.
+	https://github.com/fastify/fastify-swagger-ui?tab=readme-ov-file#rendering-models-at-the-bottom-of-the-page
+
+	fastify.addSchema({
+		$id: 'collectionsFullSchema',
+		type: 'object',
+		properties: schema.body.properties
+	})	
+	*/
+
     fastify.post(
 		'/',
         {
 			preHandler : fastify.auth([
 				fastify.verifyAuth,
 			]),
-		  	schema: schema
+		  	schema: createSchema
 		},
 		async (req, res) => {
 			fastify.log.info("collection POST")
@@ -34,7 +51,7 @@ export default async function (fastify, opts) {
 			preHandler : fastify.auth([
 				fastify.verifyAuth,
 			]),
-			schema: patchSchema
+			schema: editSchema
 		},
 		async (req, res) => {
 		  	fastify.log.info("collection PATCH")
@@ -53,8 +70,8 @@ export default async function (fastify, opts) {
 			fastify.log.trace("after merge")
 			fastify.log.trace(mergedCollection)
 
-			//create a validator
-			const validate = req.compileValidationSchema(schema.body);
+			//create a validator using the createSchema
+			const validate = req.compileValidationSchema(createSchema.body);
 
 			//validate the merged collection
 			if (!validate(mergedCollection)) {

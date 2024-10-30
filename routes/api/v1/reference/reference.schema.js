@@ -176,10 +176,25 @@ const referenceProperties = {
 			enum: ['decapod','ETE','5%','1%','PACED','PGAP','fossil record']
 		}
 	}
+}
+
+export const getSchema = {
+	tags:["Reference"],
+	response: {
+		501: {
+			description: 'Not implemented',
+			type: 'object',
+			properties: {
+				statusCode: {type: "integer"},
+				msg: {type: "string"} 
+			}
+		  },	
+	}
 
 }
 
 export const editSchema = {
+	tags:["Reference"],
     body: {
 		type: 'object',
 		properties: {
@@ -207,6 +222,7 @@ export const editSchema = {
 }
 
 export const createSchema = {
+	tags:["Reference"],
     body: {
 		type: 'object',
 		properties: {

@@ -1,5 +1,5 @@
 import {getReferences, getReference, createReference, updateReference} from './reference.model.js'
-import {createSchema, editSchema} from './reference.schema.js'
+import {createSchema, editSchema, getSchema} from './reference.schema.js'
 import jmp from 'json-merge-patch'
 
 export default async function (fastify, opts) {
@@ -12,7 +12,8 @@ export default async function (fastify, opts) {
 				fastify.verifyAuth,
 			], {
 				relation: 'and'
-			})
+			}),
+			schema: getSchema
         }, 
 		async (request, reply) => {
 			fastify.log.info("get handler");
@@ -35,7 +36,7 @@ export default async function (fastify, opts) {
 			}
     	})
 
-	fastify.get('/:id', async (request, reply) => {
+	fastify.get('/:id',  {schema: getSchema}, async (request, reply) => {
 		const refs = await getReference(fastify.mariadb, request.params.id);
 		reply.send(refs);
 	})
@@ -87,7 +88,7 @@ export default async function (fastify, opts) {
 			fastify.log.trace(mergedReference)
 
 			//create a validator
-			const validate = req.compileValidationSchema(schema.body);
+			const validate = req.compileValidationSchema(createSchema.body);
 
 			//validate the merged reference
 			if (!validate(mergedReference)) {

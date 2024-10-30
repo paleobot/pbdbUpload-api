@@ -1,5 +1,5 @@
 import {getReferences, getReference, createReference, updateReference} from './reference.model.js'
-import {schema, patchSchema} from './reference.schema.js'
+import {createSchema, editSchema} from './reference.schema.js'
 import jmp from 'json-merge-patch'
 
 export default async function (fastify, opts) {
@@ -40,14 +40,13 @@ export default async function (fastify, opts) {
 		reply.send(refs);
 	})
 
-	
     fastify.post(
 		'/',
         {
 			preHandler : fastify.auth([
 				fastify.verifyAuth,
 			]),
-		  	schema: schema
+		  	schema: createSchema
 		},
 		async (req, res) => {
 			fastify.log.info("reference POST")
@@ -68,7 +67,7 @@ export default async function (fastify, opts) {
 			preHandler : fastify.auth([
 				fastify.verifyAuth,
 			]),
-			schema: patchSchema
+			schema: editSchema
 		},
 		async (req, res) => {
 		  	fastify.log.info("reference PATCH")

@@ -62,7 +62,8 @@ const book = {
 	},
 	then: {
 		properties: {
-			publisher: {type: "string"}
+			publisher: {type: "string"},
+			pubcity: {type: "string"}
 		},
 		required: [
 			"publication_type", 
@@ -83,7 +84,8 @@ const chapter = {
 		properties: {
 			pubtitle: {type: "string"},
 			publisher: {type: "string"},
-			editors: {type: "string"}
+			editors: {type: "string"},
+			pubcity: {type: "string"}
 		},
 		required: [
 			"publication_type", 
@@ -105,7 +107,8 @@ const editedCollection = {
 	then: {
 		properties: {
 			publisher: {type: "string"},
-			editors: {type: "string"}
+			editors: {type: "string"},
+			pubcity: {type: "string"}
 		},
 		required: [
 			"publication_type", 

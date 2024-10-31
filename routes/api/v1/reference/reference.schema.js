@@ -133,13 +133,16 @@ const referenceProperties = {
 			M.S. thesis, 
 			guidebook:
 				publisher: {type: "string"}, required
+				pubcity: {type: "string}
 			book chapter:
 				pubtitle: {type: "string"}, required
 				publisher: {type: "string"}, required
 				editors: {type: "string"}, required
+				pubcity: {type: "string}
 			book/book chapter:
 				publisher: {type: "string"}, required
 				editors: {type: "string"}, required
+				pubcity: {type: "string}
 		`,
 		type: "string",
 		enum: ["journal article","book","book chapter","book/book chapter","serial monograph","compendium","Ph.D. thesis","M.S. thesis","abstract","guidebook","news article","unpublished"]

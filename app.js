@@ -139,12 +139,16 @@ export default async function (fastify, opts) {
 	
 	const image = fs.readFileSync('images/logo_grey.png', {encoding: 'base64'});
 	
+	
 	fastify.register(swaggerUI, {
-		routePrefix: "/api-docs",
+		//routePrefix is problematic.
+		//See https://github.com/fastify/fastify-swagger-ui/issues/180
+		//and many others.
+		routePrefix: "/api/v1/help",
 		logo: {
 			type: 'image/png',
 			content: Buffer.from(image, 'base64'),
-			href: '/api-docs',
+			//href: '/help',
 			target: '_blank'
 		},
 		theme: {
@@ -252,4 +256,5 @@ export default async function (fastify, opts) {
     	options: Object.assign({}, opts),
 		ignorePattern: /^.*(model|schema)\.js$/
   	})
+	
 }

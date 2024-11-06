@@ -47,7 +47,7 @@ export default async function (fastify, opts) {
 		errorLinks.push({
 		href: url.format({
 					protocol: request.protocol,
-					host: request.hostname,
+					host: request.hostHack(),
 					pathname: path,
 					query: {"help": "json"}
 		}),
@@ -65,7 +65,10 @@ export default async function (fastify, opts) {
 	
 	fastify.decorateReply('navLinks', (req, limit, offset, localCount, totalCount, single) => {
 		const getHostURL = function() {
-			return req.protocol + "://" + req.hostname; //TODO: This might choke with query params
+			return url.format({
+				protocol: req.protocol,
+				host: req.hostHack(),
+			})
 		}
 		const navLinks = [
 		];

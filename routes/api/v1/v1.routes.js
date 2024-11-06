@@ -30,7 +30,7 @@ export default async function (fastify, opts) {
 		
 	});
 
-  fastify.get('/', async function (request, reply) {    
+  fastify.get('/', {schema: {hide: true}}, async function (request, reply) {    
     return { 
         help: url.format({
         protocol: request.protocol,

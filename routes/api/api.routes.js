@@ -2,7 +2,7 @@ import url from 'url'
 import {logger} from '../../app.js'
 
 export default async function (fastify, opts) {
-  fastify.get('/', async function (request, reply) {
+  fastify.get('/', {schema: {hide: true}}, async function (request, reply) {
     return { 
     	v1: url.format({
         protocol: request.protocol,

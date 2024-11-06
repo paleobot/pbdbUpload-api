@@ -21,6 +21,12 @@ export default async function (fastify, opts) {
 
 	logger = fastify.log;
 
+	//TODO: This is a hack to get around the fact that fastify-cli does not currently allow setting trustProxy. Without this setting, it is impossible to get the original host when building urls. 
+	fastify.decorateRequest("hostHack", function () {
+		return this.host.includes("host.docker.internal") ? "localhost" : this.host
+		//return this.host.includes("host.docker.internal") ? "testpaleobiodb.colo-prod-aws.arizona.edu" : this.host
+	})
+
 	fastify.register(cookie, {
 		hook: 'onRequest', 
 		parseOptions: {}  
@@ -137,9 +143,10 @@ export default async function (fastify, opts) {
 			
 	})
 	
+	/*
+	Moving this to the v1.routes to avoid issue mentioned below. 
+	I dunno, maybe that's a better place for it anyway.
 	const image = fs.readFileSync('images/logo_grey.png', {encoding: 'base64'});
-	
-	
 	fastify.register(swaggerUI, {
 		//routePrefix is problematic.
 		//See https://github.com/fastify/fastify-swagger-ui/issues/180
@@ -163,13 +170,14 @@ export default async function (fastify, opts) {
 		}
 		
 	});
+	*/
 
 	fastify.register(mariadb, {
 		promise: true,
 		//TODO:  get host from .env and make it dependent on run variable.
 		//Note: This works if host.docker.internal is added to docker run in vscode settings
-		host: 'localhost',
-		//host: 'host.docker.internal',
+		//host: 'localhost',
+		host: 'host.docker.internal',
 		user: 'pbdbuser',
 		password: 'pbdbpwd',
 		database: 'pbdb',

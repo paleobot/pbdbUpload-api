@@ -461,6 +461,7 @@ const collectionProperties = {
 
 export const getSchema = {
 	tags:["Collection"],
+	hide: true,
 	response: {
 		501: {
 			description: 'Not implemented',

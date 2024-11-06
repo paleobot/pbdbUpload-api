@@ -186,6 +186,7 @@ const referenceProperties = {
 
 export const getSchema = {
 	tags:["Reference"],
+	hide: true,
 	response: {
 		501: {
 			description: 'Not implemented',

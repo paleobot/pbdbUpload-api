@@ -12,15 +12,21 @@ const isDuplicate = async (conn, reference) => {
                 reference_no 
             from 
                 refs 
-            where 
-                reftitle = :reftitle and
-                pubyr = :pubyr
+            where
+                ${reference.doi ? 
+                    `doi = :doi or` :
+                    ''
+                }
+                (match(reftitle) against (:reftitle) and
+                pubyr = :pubyr)
                 ${reference.reference_no ? 
                     `and reference_no != :reference_no` :
                     ''
                 }
         `
+
     }, {
+        doi: reference.doi,
         reftitle: reference.reftitle, 
         pubyr: reference.pubyr,
         reference_no: reference.reference_no,

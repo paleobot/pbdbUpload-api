@@ -17,7 +17,7 @@ const isDuplicate = async (conn, reference) => {
                     `doi = :doi or` :
                     ''
                 }
-                (match(reftitle) against (:reftitle) and
+                (match(reftitle) against (:reftitle) > 20 and
                 pubyr = :pubyr)
                 ${reference.reference_no ? 
                     `and reference_no != :reference_no` :

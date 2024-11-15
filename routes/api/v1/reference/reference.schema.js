@@ -211,6 +211,10 @@ export const editSchema = {
 				//TODO: Would like to catch these here and generate validation error. Unfortunately, fastify also sets removeAdditional by default, which quietly removes them instead. To change this, would have to move away from fastify-cli (https://github.com/fastify/fastify-cli?tab=readme-ov-file#migrating-out-of-fastify-cli-start)
 				//TODO: But wait, there's more. additionalProperties only knows about properties in this direct schema. It does not know about properties in the conditional schemas. This means that if you have property_type "journal article", pubtitle, pubvol, and pub number get removed before the model gets hold of them. This might be rectified in a later version of JSON Schema (https://stackoverflow.com/a/69313287). Look into that. But for now, we can't use additionalProperties and must let the model catch unknown column names.
 				//additionalProperties: false,
+				unevaluatedProperties: false, //new with Draft 2019-09
+			},
+			allowDuplicate: {
+				type: "boolean"
 			}
 		},
 		examples: [{
@@ -226,6 +230,15 @@ export const editSchema = {
 				msg: {type: "string"},
 			}
 		},	
+		400: {
+			description: "Bad request",
+			type: "object",
+			properties: {
+				statusCode: {type: "integer"},
+				msg: {type: "string"},
+				links: {type: "array"}
+			}
+		}	
 	}
 }
 
@@ -240,6 +253,7 @@ export const createSchema = {
 				//TODO: Would like to catch these here and generate validation error. Unfortunately, fastify also sets removeAdditional by default, which quietly removes them instead. To change this, would have to move away from fastify-cli (https://github.com/fastify/fastify-cli?tab=readme-ov-file#migrating-out-of-fastify-cli-start)
 				//TODO: But wait, there's more. additionalProperties only knows about properties in this direct schema. It does not know about properties in the conditional schemas. This means that if you have property_type "journal article", pubtitle, pubvol, and pub number get removed before the model gets hold of them. This might be rectified in a later version of JSON Schema (https://stackoverflow.com/a/69313287). Look into that. But for now, we can't use additionalProperties and must let the model catch unknown column names.
 				//additionalProperties: false,
+				unevaluatedProperties: false, //new with Draft 2019-09
 				required: [
 					"publication_type", 
 					"reftitle", 
@@ -254,6 +268,9 @@ export const createSchema = {
 					chapter,
 					editedCollection,
 				],
+			},
+			allowDuplicate: {
+				type: "boolean"
 			}
       	},
 		examples: [{
@@ -285,6 +302,7 @@ export const createSchema = {
 			properties: {
 				statusCode: {type: "integer"},
 				msg: {type: "string"},
+				links: {type: "array"}
 			}
 		}	
 	}

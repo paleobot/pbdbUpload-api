@@ -82,7 +82,7 @@ export default async function (fastify, opts) {
 			}
 
 			//Need to re-add collection_no after validation because fastify sets removeAdditional to true, which removes properties that aren't in validation schema. But model needs it.
-			mergedCollection.collection.collection_no = req.params.id;
+			mergedCollection.collection.collection_no = parseInt(req.params.id);
 			fastify.log.info("mergedCollection after validation(collection_no added")
 			fastify.log.info(mergedCollection)
 

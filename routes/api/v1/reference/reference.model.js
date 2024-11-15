@@ -17,8 +17,7 @@ const isDuplicate = async (conn, reference) => {
                     `doi = :doi or` :
                     ''
                 }
-                (match(reftitle) against (:reftitle) > 20 and
-                pubyr = :pubyr)
+                match(reftitle) against (:reftitle) > 20
                 ${reference.reference_no ? 
                     `and reference_no != :reference_no` :
                     ''
@@ -125,7 +124,7 @@ export const createReference = async (pool, reference, user, allowDuplicate) => 
     }
 }
 
-export const updateReference = async (pool, patch, referenceID, user, allowDuplicate, mergedReference) => {
+export const updateReference = async (pool, patch, user, allowDuplicate, mergedReference) => {
     logger.info("updateReference");
     logger.trace(user)
     logger.trace(patch);
@@ -134,7 +133,7 @@ export const updateReference = async (pool, patch, referenceID, user, allowDupli
     updateAssets.propStr += `, modifier = :modifier, modifier_no = :modifier_no`
     updateAssets.values.modifier = user.userName; //TODO: consider stripping to first initial
     updateAssets.values.modifier_no = user.userID;
-    updateAssets.values.reference_no = referenceID;
+    updateAssets.values.reference_no = mergedReference.reference_no;
     
     const updateSQL = `update refs set ${updateAssets.propStr} where reference_no = :reference_no`
     logger.trace(updateSQL)

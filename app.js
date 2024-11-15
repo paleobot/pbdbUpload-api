@@ -7,6 +7,8 @@ import swaggerUI from "@fastify/swagger-ui";
 import cookie from '@fastify/cookie'
 import auth from '@fastify/auth'
 import fs from 'fs'
+import Ajv2019 from "ajv/dist/2019.js"
+import addFormats from 'ajv-formats'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -16,10 +18,22 @@ export let logger = null;
 // Pass --options via CLI arguments in command to enable these options.
 export const options = {}
 
+export const SchemaCompiler = ({ schema }) => {
+	const ajv = new Ajv2019()
+	addFormats(ajv)
+	const validate = ajv.compile(schema)
+	//const validate = new Ajv2019().compile(schema)
+	return (value) => !validate(value) 
+	  ? ({ value, error: validate.errors })
+	  : ({ value })
+}
+
 export default async function (fastify, opts) {
 	// Place here your custom code!  
 
 	logger = fastify.log;
+
+	fastify.setValidatorCompiler(SchemaCompiler);
 
 	//TODO: This is a hack to get around the fact that fastify-cli does not currently allow setting trustProxy. Without this setting, it is impossible to get the original host when building urls. 
 	fastify.decorateRequest("hostHack", function () {
@@ -43,13 +57,13 @@ export default async function (fastify, opts) {
 		Object.keys(request.params).forEach(key => {
 			path = path.replace("/" + request.params[key], "");
 		});
-	
+		path = `${path.substring(0, path.lastIndexOf('/'))}/help`
+
 		errorLinks.push({
 		href: url.format({
 					protocol: request.protocol,
 					host: request.hostHack(),
 					pathname: path,
-					query: {"help": "json"}
 		}),
 		rel: "help"
 		});
@@ -58,7 +72,12 @@ export default async function (fastify, opts) {
 		error.links = errorLinks;
 		reply.code(error.statusCode).send({
 			statusCode: error.statusCode,
-			msg: error.message,
+			//Some razzle here to display unevaluatedProperty if it's available
+			msg: `${error.message}${
+				error.validation && error.validation[0].params && error.validation[0].params.unevaluatedProperty ?
+					`: ${error.validation[0].params.unevaluatedProperty}` :
+					''
+			}`,
 			links: errorLinks
 		})	
 	})
@@ -179,8 +198,8 @@ export default async function (fastify, opts) {
 		promise: true,
 		//TODO:  get host from .env and make it dependent on run variable.
 		//Note: This works if host.docker.internal is added to docker run in vscode settings
-		//host: 'localhost',
-		host: 'host.docker.internal',
+		host: 'localhost',
+		//host: 'host.docker.internal',
 		user: 'pbdbuser',
 		password: 'pbdbpwd',
 		database: 'pbdb',

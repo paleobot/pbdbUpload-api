@@ -98,10 +98,10 @@ export default async function (fastify, opts) {
 			}
 
 			//Need to re-add reference_no after validation because fastify sets removeAdditional to true, which removes properties that aren't in validation schema. But model needs it.
-			mergedReference.reference.reference_no = req.params.id;
+			mergedReference.reference.reference_no = parseInt(req.params.id);
 
 			//if it's good, let the model apply the patch
-			await updateReference(fastify.mariadb, req.body.reference, req.params.id, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate, mergedReference.reference)
+			await updateReference(fastify.mariadb, req.body.reference, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate, mergedReference.reference)
 
 			return {statusCode: 204, msg: "Reference modified"}
   		}

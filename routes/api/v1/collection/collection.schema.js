@@ -483,6 +483,9 @@ export const editSchema = {
 			collection: {
 				type: "object",
 				properties: collectionProperties,
+			},
+			allowDuplicate: {
+				type: "boolean"
 			}
 		},
 		examples: [{
@@ -529,6 +532,9 @@ export const createSchema = {
                     "environment",
                     "pres_mode"
                 ],
+			},
+			allowDuplicate: {
+				type: "boolean"
 			}
       	},
 		examples: [{

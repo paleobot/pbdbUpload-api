@@ -7,17 +7,25 @@ const occurrenceProperties = {
 	collection_no: {type: "integer"},	
 	taxon_no: {type: "integer"},	
 	genus_reso: {
+		description: "Required if genus_name is populated",
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. gen.','sensu lato','?','"','informal'],
 	},
-	genus_name: {type: "string"},	
+	genus_name: {
+		description: "Required if subgenus_name or species_name is populated",
+		type: "string"
+	},	
 	species_reso: {
+		description: "Required if species_name is populated",
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. sp.','sensu lato','?','"','informal'],
 	},
 	species_name: {type: "string"},	
 	abund_value: {type: "string"},	
-	abund_unit: {type: "string"},	
+	abund_unit: {
+		description: "Required if abund_value is populated",
+		type: "string"
+	},	
 	reference_no: {type: "integer"},	
 	comments: {type: "string"},	
 	upload: {
@@ -25,6 +33,7 @@ const occurrenceProperties = {
 		enum: ['','YES'],
 	},
 	subgenus_reso: {
+		description: "Required if subgenus_name is populated",
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. subgen.','sensu lato','?','"','informal'],
 	},

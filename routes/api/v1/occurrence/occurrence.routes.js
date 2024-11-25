@@ -89,7 +89,7 @@ export default async function (fastify, opts) {
 			fastify.log.trace(occurrences[0])
 
 			//strip null properties
-			const occurrence = {occurrence: Object.fromEntries(Object.entries(collections[0]).filter(([_, v]) => v != null))};
+			const occurrence = {occurrence: Object.fromEntries(Object.entries(occurrences[0]).filter(([_, v]) => v != null))};
 			fastify.log.trace("after stripping nulls")
 			fastify.log.trace(occurrence)
 
@@ -113,7 +113,7 @@ export default async function (fastify, opts) {
 			fastify.log.info("mergedOccurrence after validation(occurrence_no added")
 			fastify.log.info(mergedOccurrence)
 
-			await updateCollection(fastify.mariadb, req.body.occurrence, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate, mergedOccurrence.occurrence)
+			await updateOccurrence(fastify.mariadb, req.body.occurrence, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate, mergedOccurrence.occurrence)
 
 			return {statusCode: 204, msg: "Occurrence modified"}
   		}

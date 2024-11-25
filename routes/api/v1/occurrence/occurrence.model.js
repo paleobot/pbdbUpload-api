@@ -183,11 +183,11 @@ export const updateOccurrence = async (pool, patch, user, allowDuplicate, merged
     updateAssets.propStr += `${updateAssets.propStr === '' ? '': ', '} modifier = :modifier, modifier_no = :modifier_no`
     updateAssets.values.modifier = user.userName; //TODO: consider stripping to first initial
     updateAssets.values.modifier_no = user.userID;
-    updateAssets.values.collection_no = mergedCollection.collection_no;
+    updateAssets.values.occurrence_no = mergedOccurrence.occurrence_no;
 
     //derived properties
 
-    const updateSQL = `update occurences set ${updateAssets.propStr} where occurrence_no = :occurrence_no`
+    const updateSQL = `update occurrences set ${updateAssets.propStr} where occurrence_no = :occurrence_no`
     
     let conn;
     try {

@@ -97,20 +97,16 @@ export const createSchema = {
 				additionalProperties: false,
 				required: [
 					"collection_no",
-					//"taxon_no",
-					//"genus_reso",
-					//"genus_name",
-					//"species_reso",
-					//"species_name",
-					//"abund_value",
-					//"abund_unit",
+					"taxon_no",
 					"reference_no",
-					//"comments",
-					//"subgenus_reso",
-					//"subgenus_name",
-					//"plant_organ",
-					//"plant_organ2",
                 ],
+				dependentRequired: {
+					genus_name: ["genus_reso"],
+					subgenus_name: ["subgenus_reso", "genus_name"],
+					species_name: ["species_reso", "genus_name"],
+					abund_value: ["abund_unit"]
+				  }
+				
 			},
 			allowDuplicate: {
 				type: "boolean"

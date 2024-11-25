@@ -1,0 +1,6 @@
+To run changes on dev:
+1) git pull
+2) pbdb down pbdbupload
+3) docker build -t pbdbupload:latest .
+4) cd /var/paleobiodb
+5) perl install.pl

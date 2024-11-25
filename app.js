@@ -72,10 +72,14 @@ export default async function (fastify, opts) {
 		error.links = errorLinks;
 		reply.code(error.statusCode).send({
 			statusCode: error.statusCode,
-			//Some razzle here to display unevaluatedProperty if it's available
+			//Some razzle here to display unevaluatedProperty or allowedValues if available
 			msg: `${error.message}${
 				error.validation && error.validation[0].params && error.validation[0].params.unevaluatedProperty ?
 					`: ${error.validation[0].params.unevaluatedProperty}` :
+					''
+			}${
+				error.validation && error.validation[0].params && error.validation[0].params.allowedValues ?
+					`: ${error.validation[0].params.allowedValues}` :
 					''
 			}`,
 			links: errorLinks

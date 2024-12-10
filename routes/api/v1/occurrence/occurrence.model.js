@@ -141,6 +141,7 @@ export const createOccurrence = async (pool, occurrence, user, allowDuplicate) =
             //verify references
             await verifyReference(conn, occurrence.reference_no);
             await verifyCollection(conn, occurrence.collection_no);
+            //TODO await verifyTaxon(conn, specimen.occurrence_no);
             
             await updatePerson(conn, user);
 
@@ -203,6 +204,7 @@ export const updateOccurrence = async (pool, patch, user, allowDuplicate, merged
             if (patch.reference_no) {
                 await verifyReference(conn, patch.reference_no);
             }
+            //TODO: verify taxon_no and occurrence_no
 
             await updatePerson(conn, user);
 

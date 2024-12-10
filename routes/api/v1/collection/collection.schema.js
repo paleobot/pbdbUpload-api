@@ -39,7 +39,10 @@ export const patchSchema = {
 }
 
 const collectionProperties = {
-	collection_name: {type: "string"},
+	collection_name: {
+		type: "string",
+		maxLength: 255
+	},
 	collection_type: {
 		type: "string",
 		enum: ['archaeological','biostratigraphic','paleoecologic','taphonomic','taxonomic','general faunal/floral'],
@@ -61,9 +64,18 @@ const collectionProperties = {
 		type: "string",
 		format: "date-time"
 	},
-	country: {type: "string"},
-	state: {type: "string"},
-	county: {type: "string"},
+	country: {
+		type: "string",
+		maxLength: 255
+	},
+	state: {
+		type: "string",
+		maxLength: 255
+	},
+	county: {
+		type: "string",
+		maxLength: 255
+	},
 	lat: {
 		type: "number",
 		minimum: -90,
@@ -104,33 +116,54 @@ const collectionProperties = {
 		type: "string",
 		enum: ['Late/Upper','Middle - Late/Upper','Middle','Early/Lower - Middle','Early/Lower']
 	},
-	epoch_max:	{type: "string"},	
-	epoch_min:	{type: "string"},	
+	epoch_max:	{
+		type: "string",
+		maxLength: 255
+	},	
+	epoch_min:	{
+		type: "string",
+		maxLength: 255
+	},	
 	emlintage_max: {
 		type: "string",
 		enum: ['Late/Upper','Middle - Late/Upper','Middle','Early/Lower - Middle','Early/Lower']
 	},
-	intage_max:	{type: "string"},
+	intage_max:	{
+		type: "string",
+		maxLength: 255
+	},
 	emlintage_min: {
 		type: "string",
 		enum: ['Late/Upper','Middle - Late/Upper','Middle','Early/Lower - Middle','Early/Lower']
 	},
-	intage_min:	{type: "string"},	
+	intage_min:	{
+		type: "string",
+		maxLength: 255
+	},	
 	emllocage_max: {
 		type: "string",
 		enum: ['Late/Upper','Middle - Late/Upper','Middle','Early/Lower - Middle','Early/Lower']
 	},
-	locage_max:	{type: "string"},	
+	locage_max:	{
+		type: "string",
+		maxLength: 255
+	},	
 	emllocage_min: {
 		type: "string",
 		enum: ['Late/Upper','Middle - Late/Upper','Middle','Early/Lower - Middle','Early/Lower']
 	},
-	locage_min: {type: "string"},	
+	locage_min: {
+		type: "string",
+		maxLength: 255
+	},	
 	zone_type: {
 		type: "string",
 		enum: ['ammonoid','brachiopod','conodont','foram','graptolite','inoceramid','mammal','nannofossil','pollen','small shelly','trilobite','other']
 	},
-	zone: {type: "string"},	
+	zone: {
+		type: "string",
+		maxLength: 255
+	},	
 	lithology1: {
 		type: "string",
 		enum: ['not reported','"siliciclastic"','claystone','mudstone','"shale"','siltstone','sandstone','gravel','conglomerate','breccia','"mixed carbonate-siliciclastic"','marl','lime mudstone','chalk','travertine','wackestone','packstone','grainstone','"reef rocks"','floatstone','rudstone','bafflestone','bindstone','framestone','"limestone"','dolomite','"carbonate"','calcareous ooze','chert','diatomite','silicious ooze','radiolarite','amber','coal','peat','lignite','subbituminous coal','bituminous coal','anthracite','coal ball','tar','evaporite','gypsum','phosphorite','pyrite','ironstone','siderite','phyllite','slate','schist','quartzite','"volcaniclastic"','ash','tuff'],
@@ -414,19 +447,24 @@ const collectionProperties = {
 		type: "string"
 	},		
 	formation: {
-		type: "string"
+		type: "string",
+		maxLength: 255
 	},			
 	geological_group: {
-		type: "string"
+		type: "string",
+		maxLength: 255
 	},			
 	member: {
-		type: "string"
+		type: "string",
+		maxLength: 255
 	},				
 	localsection: {
-		type: "string"
+		type: "string",
+		maxLength: 255
 	},				
 	localbed: {
-		type: "string"
+		type: "string",
+		maxLength: 255
 	},				
 	localbedunit: {
 		type: "string",
@@ -437,10 +475,12 @@ const collectionProperties = {
 		enum: ['bottom to top','top to bottom','no particular order']
 	},	
 	regionalsection: {
-		type: "string"
+		type: "string",
+		maxLength: 255
 	},				
 	regionalbed: {
-		type: "string"
+		type: "string",
+		maxLength: 255
 	},				
 	regionalbedunit: {
 		type: "string",

@@ -33,8 +33,14 @@ const journalArticle = 	{
 	then: {
 		properties: {
 			pubtitle: {type: "string"},
-			pubvol: {type: "string"},
-			pubno: {type: "string"},
+			pubvol: {
+				type: "string",
+				maxLength: 10
+			},
+			pubno: {
+				type: "string",
+				maxLength: 10
+			},
 		},
 		required: [
 			"publication_type", 
@@ -62,8 +68,14 @@ const book = {
 	},
 	then: {
 		properties: {
-			publisher: {type: "string"},
-			pubcity: {type: "string"}
+			publisher: {
+				type: "string",
+				maxLength: 255
+			},
+			pubcity: {
+				type: "string",
+				maxLength: 80
+			}
 		},
 		required: [
 			"publication_type", 
@@ -83,9 +95,18 @@ const chapter = {
 	then: {
 		properties: {
 			pubtitle: {type: "string"},
-			publisher: {type: "string"},
-			editors: {type: "string"},
-			pubcity: {type: "string"}
+			publisher: {
+				type: "string",
+				maxLength: 255
+			},
+			editors: {
+				type: "string",
+				maxLength: 255
+			},
+			pubcity: {
+				type: "string",
+				maxLength: 80
+			}
 		},
 		required: [
 			"publication_type", 
@@ -106,9 +127,18 @@ const editedCollection = {
 	},
 	then: {
 		properties: {
-			publisher: {type: "string"},
-			editors: {type: "string"},
-			pubcity: {type: "string"}
+			publisher: {
+				type: "string",
+				maxLength: 255
+			},
+			editors: {
+				type: "string",
+				maxLength: 255
+			},
+			pubcity: {
+				type: "string",
+				maxLength: 80
+			}
 		},
 		required: [
 			"publication_type", 
@@ -148,15 +178,42 @@ const referenceProperties = {
 		enum: ["journal article","book","book chapter","book/book chapter","serial monograph","compendium","Ph.D. thesis","M.S. thesis","abstract","guidebook","news article","unpublished"]
 	},
 	reftitle: {type: "string"},
-	author1init: {type: "string"},
-	author1last: {type: "string"},
-	author2init: {type: "string"},
-	author2last: {type: "string"},
-	otherauthors: {type: "string"},
-	pubyr: {type: "string"},
-	firstpage: {type: "string"},
-	lastpage: {type: "string"},
-	doi: {type: "string"},
+	author1init: {
+		type: "string",
+		maxLength: 10
+	},
+	author1last: {
+		type: "string",
+		maxLength: 255
+	},
+	author2init: {
+		type: "string",
+		maxLength: 10
+	},
+	author2last: {
+		type: "string",
+		maxLength: 255
+	},
+	otherauthors: {
+		type: "string",
+		maxLength: 255
+	},
+	pubyr: {
+		type: "string",
+		maxLength: 4
+	},
+	firstpage: {
+		type: "string",
+		maxLength: 10
+	},
+	lastpage: {
+		type: "string",
+		maxLength: 10
+	},
+	doi: {
+		type: "string",
+		maxLength: 80
+	},
 	language: {
 		type: "string",
 		enum: ['Chinese','English','French','German','Italian','Japanese','Portugese','Russian','Spanish','other','unknown'],

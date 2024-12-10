@@ -13,15 +13,22 @@ const occurrenceProperties = {
 	},
 	genus_name: {
 		description: "Required if subgenus_name or species_name is populated",
-		type: "string"
+		type: "string",
+		maxLength: 255
 	},	
 	species_reso: {
 		description: "Required if species_name is populated",
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. sp.','sensu lato','?','"','informal'],
 	},
-	species_name: {type: "string"},	
-	abund_value: {type: "string"},	
+	species_name: {
+		type: "string",
+		maxLength: 255
+	},	
+	abund_value: {
+		type: "string",
+		maxLength: 255
+	},	
 	abund_unit: {
 		description: "Required if abund_value is populated",
 		type: "string"
@@ -37,7 +44,10 @@ const occurrenceProperties = {
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. subgen.','sensu lato','?','"','informal'],
 	},
-	subgenus_name: {type: "string"},	
+	subgenus_name: {
+		type: "string",
+		maxLength: 255
+	},	
 	plant_organ: {
 		type: "string",
 		enum: ['','unassigned','leaf','seed/fruit','axis','plant debris','marine palyn','microspore','megaspore','flower','seed repro','non-seed repro','wood','sterile axis','fertile axis','root','cuticle','multi organs'],

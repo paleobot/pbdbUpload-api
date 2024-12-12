@@ -7,24 +7,25 @@ const occurrenceProperties = {
 	collection_no: {type: "integer"},	
 	taxon_no: {type: "integer"},	
 	genus_reso: {
-		description: "Required if genus_name is populated",
+		description: "Required if taxon_no is for a genus",
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. gen.','sensu lato','?','"','informal'],
 	},
-	genus_name: {
-		description: "Required if subgenus_name or species_name is populated",
+	subgenus_reso: {
+		description: "Required if taxon_no is for a subgenus",
 		type: "string",
-		maxLength: 255
-	},	
+		enum: ['','aff.','cf.','ex gr.','n. subgen.','sensu lato','?','"','informal'],
+	},
 	species_reso: {
-		description: "Required if species_name is populated",
+		description: "Required if taxon_no is for a species",
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. sp.','sensu lato','?','"','informal'],
 	},
-	species_name: {
+	subspecies_reso: {
+		description: "Required if taxon_no is for a subspecies",
 		type: "string",
-		maxLength: 255
-	},	
+		enum: ['','aff.','cf.','ex gr.','n. sp.','sensu lato','?','"','informal'],
+	},
 	abund_value: {
 		type: "string",
 		maxLength: 255
@@ -39,15 +40,6 @@ const occurrenceProperties = {
 		type: "string",
 		enum: ['','YES'],
 	},
-	subgenus_reso: {
-		description: "Required if subgenus_name is populated",
-		type: "string",
-		enum: ['','aff.','cf.','ex gr.','n. subgen.','sensu lato','?','"','informal'],
-	},
-	subgenus_name: {
-		type: "string",
-		maxLength: 255
-	},	
 	plant_organ: {
 		type: "string",
 		enum: ['','unassigned','leaf','seed/fruit','axis','plant debris','marine palyn','microspore','megaspore','flower','seed repro','non-seed repro','wood','sterile axis','fertile axis','root','cuticle','multi organs'],
@@ -120,9 +112,6 @@ export const createSchema = {
 					"reference_no",
                 ],
 				dependentRequired: {
-					genus_name: ["genus_reso"],
-					subgenus_name: ["subgenus_reso", "genus_name"],
-					species_name: ["species_reso", "genus_name"],
 					abund_value: ["abund_unit"]
 				  }
 				

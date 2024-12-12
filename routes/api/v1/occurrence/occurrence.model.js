@@ -59,6 +59,49 @@ const verifyCollection = async (conn, collectionID) => {
     }
 }
 
+const fetchTaxon = async (conn, taxonID) => {
+    logger.trace("fetchTaxon")
+    logger.trace(taxonID)
+    const taxonResult = await conn.query("select * from authorities where taxon_no = ?", [taxonID]);
+    if (taxonResult.length === 0) {
+        const error = new Error(`Unrecognized taxon: ${taxonID}`);
+        error.statusCode = 400
+        throw error
+    }
+    logger.trace(taxonResult[0])
+
+    const taxonParsed = [...taxonResult[0].taxon_name.matchAll(/^((\p{Lu}\p{Ll}*) ?)(\((\p{Lu}\p{Ll}*)\) )?(\p{Ll}*)( (\p{Ll}*))?/gu)]
+    const genus = taxonParsed[0][2];
+    const subgenus = taxonParsed[0][4];
+    const species = taxonParsed[0][5];
+    const subspecies = taxonParsed[0][7];
+
+    logger.trace(genus)
+    logger.trace(subgenus)
+    logger.trace(species)
+    logger.trace(subspecies)
+    logger.trace({
+        genus: taxonParsed[0][1] || null,
+        subgenus: taxonParsed[0][3] || null,
+        species: taxonParsed[0][4] ? 
+                    taxonParsed[0][6] ?
+                        `${taxonParsed[0][4]} ${taxonParsed[0][6]}` :
+                        taxonParsed[0][4] :
+                 null
+    })
+
+    return {
+        rank: taxonResult[0].taxon_rank,
+        genus: taxonParsed[0][1] || null,
+        subgenus: taxonParsed[0][3] || null,
+        species: taxonParsed[0][4] ? 
+                    taxonParsed[0][6] ?
+                        `${taxonParsed[0][4]} ${taxonParsed[0][6]}` :
+                        taxonParsed[0][4] :
+                 null
+    }
+}
+
 const updatePerson = async (conn, user) => {
     const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
     if (rs.affectedRows !== 1) throw new Error("Could not update person table");
@@ -124,7 +167,10 @@ export const createOccurrence = async (pool, occurrence, user, allowDuplicate) =
     insertAssets.values.authorizer_no = user.authorizerID;
 
     //derived properties
-    
+    insertAssets.propStr += `, genus_name, subgenus_name, species_name`;
+	insertAssets.valStr += `, :genus_name, :subgenus_name, :species_name`;
+    //Note: values will be filled in inside try below
+   
 	const insertSQL = `insert into occurrences (${insertAssets.propStr}) values (${insertAssets.valStr}) returning occurrence_no`
 	logger.trace(insertSQL)
 	logger.trace(insertAssets.values)
@@ -143,6 +189,43 @@ export const createOccurrence = async (pool, occurrence, user, allowDuplicate) =
             await verifyCollection(conn, occurrence.collection_no);
             //TODO await verifyTaxon(conn, specimen.occurrence_no);
             
+            const taxon = await fetchTaxon(conn, occurrence.taxon_no);
+            logger.trace("taxon = ")
+            logger.trace(taxon)
+
+            if (
+                ("genus" === taxon.rank && !occurrence.genus_reso) ||
+                ("subgenus" === taxon.rank && !occurrence.subgenus_reso) ||
+                ("species" === taxon.rank && !occurrence.species_reso)
+            ) {
+                const error = new Error(`Taxon has rank ${taxon.rank}. ${taxon.rank}_reso is required.`)
+                error.statusCode = 400
+                throw error
+            }
+
+            if ((
+                "genus" === taxon.rank && (
+                    occurrence.subgenus_reso || 
+                    occurrence.species_reso || 
+                    occurrence.subspecies_reso
+                )) ||  (
+                "subgenus" === taxon.rank && (
+                    occurrence.species_reso || 
+                    occurrence.subspecies_reso
+                )) || (
+                "species" === taxon.rank && (
+                    occurrence.subspecies_reso
+                )) 
+            ) {
+                const error = new Error(`Taxon has rank ${taxon.rank}. Resolutions below that rank are not allowed.`)
+                error.statusCode = 400
+                throw error
+            }
+        
+            insertAssets.values.genus_name = taxon.genus; 
+            insertAssets.values.subgenus_name = taxon.subgenus || ''; 
+            insertAssets.values.species_name = taxon.species || ''; 
+
             await updatePerson(conn, user);
 
             let res = await conn.query({ 

@@ -91,7 +91,7 @@ const fetchTaxon = async (conn, taxonID) => {
                  null
     })
     */
-   
+
     return {
         rank: taxonResult[0].taxon_rank,
         genus: taxonParsed[0][1] || null,
@@ -277,10 +277,6 @@ export const updateOccurrence = async (pool, patch, user, allowDuplicate, merged
     updateAssets.values.modifier_no = user.userID;
     updateAssets.values.occurrence_no = mergedOccurrence.occurrence_no;
 
-    //derived properties
-
-    const updateSQL = `update occurrences set ${updateAssets.propStr} where occurrence_no = :occurrence_no`
-    
     let conn;
     try {
         conn = await pool.getConnection();
@@ -297,6 +293,55 @@ export const updateOccurrence = async (pool, patch, user, allowDuplicate, merged
             }
             //TODO: verify taxon_no and occurrence_no
 
+            const taxon = await fetchTaxon(conn, mergedOccurrence.taxon_no);
+            logger.trace("taxon = ")
+            logger.trace(taxon)
+
+            if (
+                ("genus" === taxon.rank && !mergedOccurrence.genus_reso) ||
+                ("subgenus" === taxon.rank && !mergedOccurrence.subgenus_reso) ||
+                ("species" === taxon.rank && !mergedOccurrence.species_reso)
+            ) {
+                const error = new Error(`Taxon has rank ${taxon.rank}. ${taxon.rank}_reso is required.`)
+                error.statusCode = 400
+                throw error
+            }
+
+            if ((
+                "genus" === taxon.rank && (
+                    mergedOccurrence.subgenus_reso || 
+                    mergedOccurrence.species_reso || 
+                    mergedOccurrence.subspecies_reso
+                )) ||  (
+                "subgenus" === taxon.rank && (
+                    mergedOccurrence.species_reso || 
+                    mergedOccurrence.subspecies_reso
+                )) || (
+                "species" === taxon.rank && (
+                    mergedOccurrence.subspecies_reso
+                )) 
+            ) {
+                const error = new Error(`Taxon has rank ${taxon.rank}. Resolutions below that rank are not allowed.`)
+                error.statusCode = 400
+                throw error
+            }
+        
+            //properties derived from taxon
+            updateAssets.propStr += `, genus_name = :genus_name`;
+            updateAssets.values.genus_name = taxon.genus; 
+            if (taxon.subgenus) {
+                updateAssets.propStr += ', subgenus_name = :subgenus_name';
+                updateAssets.values.subgenus_name = taxon.subgenus;
+            }
+            if (taxon.species) {
+                updateAssets.propStr += ', species_name = :species_name';
+                updateAssets.values.species_name = taxon.species; 
+            }
+
+            const updateSQL = `update occurrences set ${updateAssets.propStr} where occurrence_no = :occurrence_no`
+            logger.trace(updateSQL)
+            logger.trace(updateAssets.values)
+        
             await updatePerson(conn, user);
 
             const res = await conn.query({ 

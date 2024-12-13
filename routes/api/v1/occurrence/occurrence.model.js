@@ -70,34 +70,36 @@ const fetchTaxon = async (conn, taxonID) => {
     }
     logger.trace(taxonResult[0])
 
-    const taxonParsed = [...taxonResult[0].taxon_name.matchAll(/^((\p{Lu}\p{Ll}*) ?)(\((\p{Lu}\p{Ll}*)\) )?(\p{Ll}*)( (\p{Ll}*))?/gu)]
-    const genus = taxonParsed[0][2];
-    const subgenus = taxonParsed[0][4];
-    const species = taxonParsed[0][5];
-    const subspecies = taxonParsed[0][7];
+    const taxonParsed = [...taxonResult[0].taxon_name.matchAll(/^(?:(\p{Lu}\p{Ll}*) ?)(?:\((\p{Lu}\p{Ll}*)\) ?)?(\p{Ll}*)?(?: (\p{Ll}*))?/gu)]
+    const genus = taxonParsed[0][1];
+    const subgenus = taxonParsed[0][2];
+    const species = taxonParsed[0][3];
+    const subspecies = taxonParsed[0][4];
 
+    /*
     logger.trace(genus)
     logger.trace(subgenus)
     logger.trace(species)
     logger.trace(subspecies)
     logger.trace({
         genus: taxonParsed[0][1] || null,
-        subgenus: taxonParsed[0][3] || null,
-        species: taxonParsed[0][4] ? 
-                    taxonParsed[0][6] ?
-                        `${taxonParsed[0][4]} ${taxonParsed[0][6]}` :
-                        taxonParsed[0][4] :
+        subgenus: taxonParsed[0][2] || null,
+        species: taxonParsed[0][3] ? 
+                    taxonParsed[0][4] ?
+                        `${taxonParsed[0][3]} ${taxonParsed[0][4]}` :
+                        taxonParsed[0][3] :
                  null
     })
-
+    */
+   
     return {
         rank: taxonResult[0].taxon_rank,
         genus: taxonParsed[0][1] || null,
-        subgenus: taxonParsed[0][3] || null,
-        species: taxonParsed[0][4] ? 
-                    taxonParsed[0][6] ?
-                        `${taxonParsed[0][4]} ${taxonParsed[0][6]}` :
-                        taxonParsed[0][4] :
+        subgenus: taxonParsed[0][2] || null,
+        species: taxonParsed[0][3] ? 
+                    taxonParsed[0][4] ?
+                        `${taxonParsed[0][3]} ${taxonParsed[0][4]}` :
+                        taxonParsed[0][3] :
                  null
     }
 }
@@ -165,16 +167,7 @@ export const createOccurrence = async (pool, occurrence, user, allowDuplicate) =
     insertAssets.values.enterer = user.userName; //TODO: consider stripping to first initial
     insertAssets.values.enterer_no = user.userID;
     insertAssets.values.authorizer_no = user.authorizerID;
-
-    //derived properties
-    insertAssets.propStr += `, genus_name, subgenus_name, species_name`;
-	insertAssets.valStr += `, :genus_name, :subgenus_name, :species_name`;
-    //Note: values will be filled in inside try below
    
-	const insertSQL = `insert into occurrences (${insertAssets.propStr}) values (${insertAssets.valStr}) returning occurrence_no`
-	logger.trace(insertSQL)
-	logger.trace(insertAssets.values)
-
     let conn;
     try {
         conn = await pool.getConnection();
@@ -222,10 +215,25 @@ export const createOccurrence = async (pool, occurrence, user, allowDuplicate) =
                 throw error
             }
         
+            //properties derived from taxon
+            insertAssets.propStr += `, genus_name`;
+            insertAssets.valStr += `, :genus_name`;
             insertAssets.values.genus_name = taxon.genus; 
-            insertAssets.values.subgenus_name = taxon.subgenus || ''; 
-            insertAssets.values.species_name = taxon.species || ''; 
+            if (taxon.subgenus) {
+                insertAssets.propStr += ', subgenus_name';
+                insertAssets.valStr += ', :subgenus_name';
+                insertAssets.values.subgenus_name = taxon.subgenus;
+            }
+            if (taxon.species) {
+                insertAssets.propStr += ', species_name';
+                insertAssets.valStr += ', :species_name';
+                insertAssets.values.species_name = taxon.species; 
+            }
 
+            const insertSQL = `insert into occurrences (${insertAssets.propStr}) values (${insertAssets.valStr}) returning occurrence_no`
+            logger.trace(insertSQL)
+            logger.trace(insertAssets.values)
+        
             await updatePerson(conn, user);
 
             let res = await conn.query({ 

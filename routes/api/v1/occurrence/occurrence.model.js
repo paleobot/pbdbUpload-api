@@ -76,22 +76,6 @@ const fetchTaxon = async (conn, taxonID) => {
     const species = taxonParsed[0][3];
     const subspecies = taxonParsed[0][4];
 
-    /*
-    logger.trace(genus)
-    logger.trace(subgenus)
-    logger.trace(species)
-    logger.trace(subspecies)
-    logger.trace({
-        genus: taxonParsed[0][1] || null,
-        subgenus: taxonParsed[0][2] || null,
-        species: taxonParsed[0][3] ? 
-                    taxonParsed[0][4] ?
-                        `${taxonParsed[0][3]} ${taxonParsed[0][4]}` :
-                        taxonParsed[0][3] :
-                 null
-    })
-    */
-
     return {
         rank: taxonResult[0].taxon_rank,
         genus: taxonParsed[0][1] || null,

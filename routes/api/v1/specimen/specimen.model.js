@@ -46,9 +46,7 @@ const verifyOccurrence = async (conn, occurrenceID) => {
 }
 
 const verifyTaxon = async (conn, taxonID) => {
-    logger.trace("verifyTaxon")
     const testResult = await conn.query("select taxon_no from authorities where taxon_no = ?", [taxonID]);
-    logger.trace(testResult.length)
     if (testResult.length === 0) {
         const error = new Error(`Unrecognized taxon: ${taxonID}`);
         error.statusCode = 400

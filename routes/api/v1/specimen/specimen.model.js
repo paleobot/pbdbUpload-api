@@ -45,6 +45,17 @@ const verifyOccurrence = async (conn, occurrenceID) => {
     }
 }
 
+const verifyTaxon = async (conn, taxonID) => {
+    logger.trace("verifyTaxon")
+    const testResult = await conn.query("select taxon_no from authorities where taxon_no = ?", [taxonID]);
+    logger.trace(testResult.length)
+    if (testResult.length === 0) {
+        const error = new Error(`Unrecognized taxon: ${taxonID}`);
+        error.statusCode = 400
+        throw error
+    }
+}
+
 const updatePerson = async (conn, user) => {
     const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
     if (rs.affectedRows !== 1) throw new Error("Could not update person table");
@@ -122,10 +133,10 @@ export const createSpecimen = async (pool, specimen, user, allowDuplicate) => {
             allowDuplicate || 
             ! await isDuplicate(conn, specimen)
         ) {
-            //verify references
+            //verify fks
             await verifyReference(conn, specimen.reference_no);
             await verifyOccurrence(conn, specimen.occurrence_no);
-            //TODO await verifyTaxon(conn, specimen.occurrence_no);
+            await verifyTaxon(conn, specimen.taxon_no);
             
             await updatePerson(conn, user);
 
@@ -183,11 +194,16 @@ export const updateSpecimen = async (pool, patch, user, allowDuplicate, mergedSp
             ! await isDuplicate(conn, mergedSpecimen)
         ) {
 
-            //verify references
-            if (patch.reference_no) {
+            //verify fks
+            if (patch.reference_no || patch.reference_no === 0) {
                 await verifyReference(conn, patch.reference_no);
             }
-            //TODO: verify taxon_no and occurrence_no
+            if (patch.occurrence_no || patch.occurrence_no === 0) {
+                await verifyOccurrence(conn, patch.occurrence_no);
+            }
+            if (patch.taxon_no || patch.taxon_no === 0) {
+                await verifyTaxon(conn, patch.taxon_no);
+            }
 
             await updatePerson(conn, user);
 

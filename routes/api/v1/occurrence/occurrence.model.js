@@ -164,7 +164,6 @@ export const createOccurrence = async (pool, occurrence, user, allowDuplicate) =
             //verify references
             await verifyReference(conn, occurrence.reference_no);
             await verifyCollection(conn, occurrence.collection_no);
-            //TODO await verifyTaxon(conn, specimen.occurrence_no);
             
             const taxon = await fetchTaxon(conn, occurrence.taxon_no);
             logger.trace("taxon = ")
@@ -271,11 +270,13 @@ export const updateOccurrence = async (pool, patch, user, allowDuplicate, merged
             ! await isDuplicate(conn, mergedOccurrence)
         ) {
 
-            //verify references
-            if (patch.reference_no) {
+            //verify fks
+            if (patch.reference_no || patch.reference_no === 0) {
                 await verifyReference(conn, patch.reference_no);
             }
-            //TODO: verify taxon_no and occurrence_no
+            if (patch.collection_no || patch.collection_no === 0) {
+                await verifyCollection(conn, patch.collection_no);
+            }
 
             const taxon = await fetchTaxon(conn, mergedOccurrence.taxon_no);
             logger.trace("taxon = ")

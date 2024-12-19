@@ -1,6 +1,8 @@
 import {prepareInsertAssets, prepareUpdateAssets, calcDegreesMinutesSeconds} from '../../../../util.js'
 import {logger} from '../../../../app.js'
 
+//TODO: Review https://github.com/paleobiodb/classic/blob/master/lib/PBDB/Taxon.pm to better understand how this table is used.
+
 const isDuplicate = async (conn, authority) => {
     logger.info("isDuplicate");
 

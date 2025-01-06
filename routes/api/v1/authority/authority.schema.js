@@ -2,6 +2,8 @@
 Validation schemas in JSON Schema format. Note that fastify uses ajv (https://ajv.js.org/) for validation, which expects the schemas to be javascript objects rather than raw JSON. Consequently, property names (keys) do not require double quotes.
 */
 
+const currentYear = new Date(Date.now()).getFullYear();
+
 const authorityProperties = {
 	taxon_no: {type: "integer"},
 	orig_no: {type: "integer"},	
@@ -12,6 +14,7 @@ const authorityProperties = {
 	},	
 	taxon_name: {
 		type: "string",
+		pattern: "^(?:.*?(?<!sp|spp|indet))$", //TODO: More here. See Taxon.pm, line 2029
 		maxLength: 80
 	},	
 	common_name: {
@@ -72,21 +75,24 @@ const authorityProperties = {
 		type: "string",
 		enum: ['','body (3D)','compression','soft parts (2D)','soft parts (3D)','amber','cast','mold','impression','trace','not a trace']
 	},	
-	ref_is_authority: {
+	ref_is_authority: { //TODO: Look at Taxon.pm, lines 562-571. Some weird mapping
 		type: "string",
-		maxLength: 4
+		maxLength: 4,
+		enum: ['', 'YES']
 	},	
 	refauth: {type: "integer"},	
 	author1init: {
 		type: "string",
+		pattern: "^(?:\\p{L}\\.? *){1,2}", //TODO: Pattern needs work. See Validaiton.pm, line 143
 		maxLength: 10
 	},	
 	author1last: {
-		type: "string",
+		type: "string", //TODO: see Validaiton.pm, line 124
 		maxLength: 80
 	},	
 	author2init: {
 		type: "string",
+		pattern: "^(?:\\p{L}\\.? *){1,2}",
 		maxLength: 10
 	},	
 	author2last: {
@@ -98,8 +104,11 @@ const authorityProperties = {
 		maxLength: 255
 	},	
 	pubyr: {
-		type: "string",
-		maxLength: 4
+		//type: "string",
+		//maxLength: 4
+		type: "integer", //This is a string in db. We will lean on auto type conversion
+		minimum: 1700,
+		maximum: currentYear
 	},	
 	pages: {
 		type: "string",
@@ -143,7 +152,7 @@ export const editSchema = {
     body: {
 		type: "object",
 		properties: {
-			authority: {
+			authority: { 
 				type: "object",
 				properties: authorityProperties,
 			},
@@ -179,14 +188,55 @@ export const createSchema = {
 				properties: authorityProperties,
 				additionalProperties: false,
 				required: [
-					"collection_no",
-					"taxon_no",
 					"reference_no",
                 ],
 				dependentRequired: {
-					abund_value: ["abund_unit"]
-				  }
-				
+					author1init: ["author1last"],
+					author2init: ["author1last", "author2last"],
+				},
+				allOf: [{
+					if: {
+						properties: {
+							taxon_rank: {
+								const: "subgenus"
+							}
+						}
+					},
+					then: {
+						required: [
+							"author1last",
+							"pubyr"
+						]
+					},
+				}, {
+					if: {
+						properties: {
+							taxon_rank: {
+								const: "species"
+							}
+						}
+					},
+					then: {
+						required: [
+							"author1last",
+							"pubyr"
+						]
+					},
+				}, {
+					if: {
+						properties: {
+							taxon_rank: {
+								const: "subspecies"
+							}
+						}
+					},
+					then: {
+						required: [
+							"author1last",
+							"pubyr"
+						]
+					},
+				}],
 			},
 			allowDuplicate: {
 				type: "boolean"

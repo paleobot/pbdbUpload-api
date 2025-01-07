@@ -14,7 +14,7 @@ const authorityProperties = {
 	},	
 	taxon_name: {
 		type: "string",
-		pattern: "^(?:.*?(?<!sp|spp|indet))$", //TODO: More here. See Taxon.pm, line 2029
+		pattern: "^(?:[A-Z][a-z]+)(?: \([A-Z][a-z]+\))?(?: [a-z]+){0,2}(?:.*?(?<!sp|spp|indet))$", //See Taxon.pm, line 663 and 2029 
 		maxLength: 80
 	},	
 	common_name: {
@@ -188,6 +188,8 @@ export const createSchema = {
 				properties: authorityProperties,
 				additionalProperties: false,
 				required: [
+					"taxon_rank",
+					"taxon_name",
 					"reference_no",
                 ],
 				dependentRequired: {

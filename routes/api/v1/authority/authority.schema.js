@@ -14,7 +14,7 @@ const authorityProperties = {
 	},	
 	taxon_name: {
 		type: "string",
-		pattern: "^(?:[A-Z][a-z]+)(?: \([A-Z][a-z]+\))?(?: [a-z]+){0,2}(?:.*?(?<!sp|spp|indet))$", //See Taxon.pm, line 663 and 2029 
+		//pattern: "^(?:[A-Z][a-z]+)(?: \([A-Z][a-z]+\))?(?: [a-z]+){0,2}(?:.*?(?<!sp|spp|indet))$", //See Taxon.pm, line 663 and 2029 
 		maxLength: 80
 	},	
 	common_name: {
@@ -46,7 +46,7 @@ const authorityProperties = {
 		type: "string",
 		maxLength: 160
 	},
-	type_locality: {type: "integer"},	
+	type_locality: {type: "integer"},	//TODO: Apparently, this is only valid for species. See Taxon.pm, line 711
 	extant_old: {
 		type: "string",
 		maxLength: 4
@@ -200,11 +200,58 @@ export const createSchema = {
 					if: {
 						properties: {
 							taxon_rank: {
-								const: "subgenus"
+								const: 'genus'
+							}
+						},
+						required: [
+							"taxon_rank"
+						]
+					},
+					then: {
+						properties: {
+							taxon_name: {
+								pattern: "^(?:[A-Z][a-z]+)$"
+							}
+						},
+						required: [
+							"extant"
+						]
+					},
+				}, {
+					if: {
+						properties: {
+							taxon_rank: {
+								enum: ['subtribe','tribe','subfamily','family','superfamily','infraorder','suborder','order','superorder','infraclass','subclass','class','superclass','subphylum','phylum','superphylum','subkingdom','kingdom','superkingdom','unranked clade','informal']
+							}
+						},
+						required: [
+							"taxon_rank"
+						]
+					},
+					then: {
+						properties: {
+							taxon_name: {
+								pattern: "^(?:[A-Z][a-z]+)$"
 							}
 						}
 					},
+				}, {
+					if: {
+						properties: {
+							taxon_rank: {
+								const: "subgenus"
+							}
+						},
+						required: [
+							"taxon_rank"
+						]
+					},
 					then: {
+						properties: {
+							taxon_name: {
+								pattern: "^(?:[A-Z][a-z]+)(?: \\([A-Z][a-z]+\\))$",
+							}
+						},
 						required: [
 							"author1last",
 							"pubyr"
@@ -216,9 +263,18 @@ export const createSchema = {
 							taxon_rank: {
 								const: "species"
 							}
-						}
+						},
+						required: [
+							"taxon_rank",
+							"extant"
+						]
 					},
 					then: {
+						properties: {
+							taxon_name: {
+								pattern: "^(?:[A-Z][a-z]+)(?: \\([A-Z][a-z]+\\))?(?: [a-z]+)(?:.*?(?<!sp|spp|indet))$",
+							}
+						},
 						required: [
 							"author1last",
 							"pubyr"
@@ -230,9 +286,17 @@ export const createSchema = {
 							taxon_rank: {
 								const: "subspecies"
 							}
-						}
+						},
+						required: [
+							"taxon_rank"
+						]
 					},
 					then: {
+						properties: {
+							taxon_name: {
+								pattern: "^(?:[A-Z][a-z]+)(?: \\([A-Z][a-z]+\\))?(?: [a-z]+)(?: [a-z]+)(?:.*?(?<!sp|spp|indet))$",
+							}
+						},
 						required: [
 							"author1last",
 							"pubyr"

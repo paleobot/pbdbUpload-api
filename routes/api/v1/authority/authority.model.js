@@ -30,10 +30,18 @@ const isDuplicate = async (conn, authority) => {
     return rows.length > 0;
 }
 
-const verifyReference = async (conn, referenceID) => {
-    const testResult = await conn.query("select reference_no from refs where reference_no = ?", [referenceID]);
+const verifyReference = async (conn, referenceID, pubyr) => {
+    //logger.trace("verifyReference")
+    const testResult = await conn.query("select reference_no, pubyr from refs where reference_no = ?", [referenceID]);
+    
     if (testResult.length === 0) {
         const error = new Error(`Unrecognized reference: ${referenceID}`);
+        error.statusCode = 400
+        throw error
+    }
+
+    if (pubyr > testResult[0].pubyr ) {
+        const error = new Error(`Reference pubyr ${testResult[0].pubyr} older than authority pubyr ${pubyr}`);
         error.statusCode = 400
         throw error
     }
@@ -103,7 +111,6 @@ export const createAuthority = async (pool, authority, user, allowDuplicate) => 
    
     let conn;
     try {
-        //TODO: this was copy/pasted from occurrences and much of it is not correct for authority. Why fetchTaxon when we are creating that?
         conn = await pool.getConnection();
         await conn.beginTransaction();
 
@@ -112,11 +119,16 @@ export const createAuthority = async (pool, authority, user, allowDuplicate) => 
             ! await isDuplicate(conn, authority)
         ) {
             //verify references
-            await verifyReference(conn, authority.reference_no);
+            await verifyReference(conn, authority.reference_no, authority.pubyr);
        
             const insertSQL = `insert into authorities (${insertAssets.propStr}) values (${insertAssets.valStr}) returning taxon_no`
             logger.trace(insertSQL)
             logger.trace(insertAssets.values)
+
+            //TODO: Update opinions table? See Taxon.pm, lines 772, 952, 963, 983, 999
+            //TODO: Cleanup discussion field? Link handling in discussion? See Taxon.pm, line 798
+            //TODO: ref_is_authority weirdness? See Taxon.pm, lines 623 and 937
+            //TODO: Update occurrences? See Taxon.pm line 1011
         
             await updatePerson(conn, user);
 
@@ -173,7 +185,7 @@ export const updateAuthority = async (pool, patch, user, allowDuplicate, mergedA
 
             //verify fks
             if (patch.reference_no || patch.reference_no === 0) {
-                await verifyReference(conn, patch.reference_no);
+                await verifyReference(conn, patch.reference_no, mergedAuthority.pubyr);
             }
         
             const updateSQL = `update authorities set ${updateAssets.propStr} where taxon_no = :taxon_no`

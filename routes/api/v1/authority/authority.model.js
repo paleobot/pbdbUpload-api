@@ -98,6 +98,26 @@ export const getAuthority = async (pool, id) => {
     }
 }
 
+const updateOccurrences = async (conn, authority, authorizer) => {
+    if ("subspecies" === authority.taxon_rank) {
+        return;
+    }
+
+    const testResult = await conn.query(
+        `select 
+            taxon_no,
+            taxon_rank,
+            taxon_name,
+            author1last,
+            author2last,
+            pubyr 
+        from 
+            authorities 
+        where 
+            taxon_name = ?`, [authority.taxon_name]);
+
+}
+
 export const createAuthority = async (pool, authority, user, allowDuplicate) => {
     logger.info("createAuthority");
     logger.trace(authority);
@@ -126,9 +146,9 @@ export const createAuthority = async (pool, authority, user, allowDuplicate) => 
             logger.trace(insertAssets.values)
 
             //TODO: Update opinions table? See Taxon.pm, lines 772, 952, 963, 983, 999
-            //TODO: Cleanup discussion field? Link handling in discussion? See Taxon.pm, line 798
+            //XTODO: Cleanup discussion field? Link handling in discussion? See Taxon.pm, line 798
             //TODO: ref_is_authority weirdness? See Taxon.pm, lines 623 and 937
-            //TODO: Update occurrences? See Taxon.pm line 1011
+            //TODO: !! Update occurrences? See Taxon.pm line 1011
         
             await updatePerson(conn, user);
 

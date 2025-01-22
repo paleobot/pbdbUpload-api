@@ -522,12 +522,11 @@ const updateOccurrences = async (conn, authority) => {
         logger.trace("matchedReidentifications = ")
         logger.trace(matchedReidentifications)
 
-        if (matchedOccurrences) {
+        if (matchedOccurrences && matchedOccurrences.length > 0) {
             const sql = `
                 UPDATE 
                     occurrences 
                 SET 
-                    modified=modified,
                     taxon_no=${authority.taxon_no} 
                 WHERE 
                     occurrence_no IN (${matchedOccurrences.reduce((occStr, idx, occurrenceID) => {
@@ -537,12 +536,11 @@ const updateOccurrences = async (conn, authority) => {
             `
            await conn.query(sql);
         }
-        if (matchedReidentifications) {
+        if (matchedReidentifications && matchedReidentifications.length > 0) {
             const sql = `
                 UPDATE 
                     reidentifications 
                 SET 
-                    modified=modified,
                     taxon_no=${authority.taxon_no} 
                 WHERE 
                     reid_no IN (${matchedReidentifications.reduce((accStr, idx, reID) => {

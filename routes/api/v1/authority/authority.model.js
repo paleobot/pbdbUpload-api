@@ -99,7 +99,7 @@ export const getAuthority = async (pool, id) => {
 }
 
 const parseTaxon = taxonName => {
-    let genus = subgenus = species = subspecies = "";
+    let genus = "", subgenus = "", species = "", subspecies = "";
   
     let parsedName = taxonName.match(/^([A-Z][a-z]+)(?:\s\(([A-Z][a-z]+)\))?(?:\s([a-z.]+))?(?:\s([a-z.]+))?/);
     if (parsedName) {
@@ -129,6 +129,9 @@ const parseTaxon = taxonName => {
 }
 
 const getOriginalCombination = async(conn, taxon_no) => {
+    logger.trace("getOriginalCombination")
+    logger.trace("taxon_no = " + taxon_no)
+
     let results = await conn.query(
         `SELECT 
             DISTINCT o.child_no 
@@ -138,6 +141,9 @@ const getOriginalCombination = async(conn, taxon_no) => {
             o.child_spelling_no=?`,
         [taxon_no]
     );
+    delete results.meta;
+    logger.trace("results 01 = ")
+    logger.trace(results)
     
     if (results.length === 0) {
         results = await conn.query(
@@ -150,6 +156,9 @@ const getOriginalCombination = async(conn, taxon_no) => {
             [taxon_no]
         )
     }
+    delete results.meta;
+    logger.trace("results 02 = ")
+    logger.trace(results)
 
     if (results.length === 0) {
         results = await conn.query(
@@ -162,6 +171,9 @@ const getOriginalCombination = async(conn, taxon_no) => {
             [taxon_no]
         )
     }
+    delete results.meta;
+    logger.trace("results 03 = ")
+    logger.trace(results)
 
     if (results.length === 0) {
         results = await conn.query(
@@ -174,6 +186,9 @@ const getOriginalCombination = async(conn, taxon_no) => {
             [taxon_no]
         )
     }
+    delete results.meta;
+    logger.trace("results 04 = ")
+    logger.trace(results)
 
     if (results.length === 0) {
         results = await conn.query(
@@ -186,7 +201,10 @@ const getOriginalCombination = async(conn, taxon_no) => {
                 o.status='misspelling of'`,
             [taxon_no]
         )
-
+        delete results.meta;
+        logger.trace("results 05 = ")
+        logger.trace(results)
+    
         if (results.length === 0) {
             return taxon_no;
         } else {
@@ -195,6 +213,7 @@ const getOriginalCombination = async(conn, taxon_no) => {
     } else if (results.length === 1){
         return results[0].child_no
     } else {
+        logger.trace("weird case")
         //Weird case caused by bad data: two original combinations numbers.  In that case use the combination with the oldest record.  The other "original" name is probably a misspelling or such and falls by he wayside
         results = await conn.query(
             `SELECT 
@@ -221,8 +240,70 @@ const getOriginalCombination = async(conn, taxon_no) => {
     }
 }
 
+const computeMatchLevel = (taxon1, taxon2) => {
+    logger.trace("computeMatchLevel")
+
+    let matchLevel = 0;
+    if (!taxon1.genus  || !taxon2.genus) {
+        return matchLevel
+    }
+
+    if (taxon2.species) {
+        if (
+            taxon1.genus === taxon2.genus && 
+            taxon1.subgenus === taxon2.subgenus && 
+            taxon1.species === taxon2.species
+        ) {
+                matchLevel = 30; //Exact match
+        } else if (
+            taxon1.genus === taxon2.genus && 
+            taxon1.species && taxon2.species && taxon1.species === taxon2.species
+        ) {
+            matchLevel = 28; //Genus and species match, next best thing
+        } else if (
+            taxon1.genus === taxon2.subgenus && 
+            taxon1.species && taxon2.species && taxon1.species === taxon2.species
+        ) {
+            matchLevel = 27; //The authorities subgenus being used as genus
+        } else if (
+            taxon1.subgenus === taxon2.genus && 
+            taxon1.species && taxon2.species && taxon1.species === taxon2.species
+        ) {
+            matchLevel = 26; //The authorities genus being used as a subgenus
+        } else if (
+            taxon1.subgenus && taxon2.subgenus && taxon1.subgenus === taxon2.subgenus && 
+            taxon1.species && taxon2.species && taxon1.species === taxon2.species
+        ) {
+            matchLevel = 25; //Genus don't match, but subgenus/species does, pretty weak
+        } 
+    } else if (taxon2.subgenus) {
+        if (taxon1.genus === taxon2.genus  &&
+            taxon1.subgenus === taxon2.subgenus) {
+                matchLevel = 19; //Genus and subgenus match
+        } else if (taxon1.genus === taxon2.subgenus) {
+            matchLevel = 17; //The authorities subgenus being used a genus
+        } else if (taxon1.subgenus === taxon2.genus) {
+            matchLevel = 16; //The authorities genus being used as a subgenus
+        } else if (taxon1.subgenus === taxon2.subgenus) {
+            matchLevel = 14; //Subgenera match up but genera don't, very junky
+        }
+    } else {
+        if (taxon1.genus === taxon2.genus) {
+            matchLevel = 18; //Genus matches at least
+        } else if (taxon1.subgenus === taxon2.genus) {
+            matchLevel = 15; //The authorities genus being used as a subgenus
+        }
+    }
+
+    logger.trace("matchLevel = " + matchLevel)
+    return matchLevel;
+}
+
 const updateOccurrences = async (conn, authority) => {
+    logger.trace("updateOccurrences")
+
     if ("subspecies" === authority.taxon_rank) {
+        logger.trace("subspecies, returning")
         return;
     }
     
@@ -241,35 +322,81 @@ const updateOccurrences = async (conn, authority) => {
             a.taxon_name = ?`, 
         [authority.taxon_name]
     );
+    delete tR.meta;
+    logger.trace("tR = ")
+    logger.trace(tR)
 
-    const taxonNumbers = tR.reduce((acc, taxon, idx, taxa) => {
-        const origTaxon1 = getOriginalCombination(conn, taxon.taxon_no);
+    /*
+    const taxonNumbers = tR.reduce(async (acc, taxon, idx, taxa) => {
+        logger.trace("taxonNumber reduce iteration")
+        logger.trace(taxon)
+        const origTaxon1 = await getOriginalCombination(conn, taxon.taxon_no);
+        logger.trace("origTaxon1 = ")
+        logger.trace(origTaxon1)
         let isSameTaxon = false;
-        taxa.slice(idx+1).forEach((taxon2) => {
-            const origTaxon2 = getOriginalCombination(conn, taxon2.taxon_no);
+        await Promise.all(taxa.slice(idx+1).map(async (taxon2) => {
+            const origTaxon2 = await getOriginalCombination(conn, taxon2.taxon_no);
+            logger.trace("origTaxon1 = ")
+            logger.trace(origTaxon1)
             isSameTaxon = ((origTaxon1 === origTaxon2) ||
                             (taxon1.author1last && 
                             taxon1.author1last === taxon2.author1last &&
                             taxon1.author2last === taxon2.author2last &&
                             taxon1.pubyr === taxon2.pubyr))
-        })
+        }))
         if (!isSameTaxon) {
             acc.push(taxon.taxon_no)
         }
-        return acc
-    })
+        return await acc
+    }, Promise.resolve([]))
+    */
+
+    const taxonNumbers = [];
+    let idx = 0; 
+    for (let idx = 0; idx < tR.length; idx++) {
+        const taxon1 = tR[idx]  
+        logger.trace("tR iteration " + idx)
+        logger.trace(taxon1)
+        const origTaxon1 = await getOriginalCombination(conn, taxon1.taxon_no);
+        logger.trace("origTaxon1 = ")
+        logger.trace(origTaxon1)
+        let isSameTaxon = false;
+        for (let jdx = idx+1; jdx < tR.length; jdx++ ) {
+            const taxon2 = tR[jdx] 
+            const origTaxon2 = await getOriginalCombination(conn, taxon2.taxon_no);
+            logger.trace("inner iteration " + jdx)
+            logger.trace("origTaxon2 = ")
+            logger.trace(origTaxon2)
+            isSameTaxon = ((origTaxon1 === origTaxon2) ||
+                            (taxon1.author1last && 
+                            taxon1.author1last === taxon2.author1last &&
+                            taxon1.author2last === taxon2.author2last &&
+                            taxon1.pubyr === taxon2.pubyr))
+        }
+        if (!isSameTaxon) {
+            taxonNumbers.push(taxon1.taxon_no)
+        }
+    }
+
+    logger.trace("taxonNumbers = ")
+    logger.trace(taxonNumbers)
 
     if (taxonNumbers.length > 1) {
+        logger.trace("Too many taxonNumbers. Throwing error")
         //TODO: No idea if this is the correct action.
         const error = new Error(`${authority.taxon_name} is a homonym. Occurrences of it may be incorrectly classified.  Please reclassify occurrences of this taxon.`);
-        error.statusCode(409);
+        error.statusCode = 409;
         throw error;
     } else if (taxonNumbers.length === 1) {
         const parsedTaxon = parseTaxon(authority.taxon_name)
+        logger.trace("parsedTaxon =")
+        logger.trace(parsedTaxon)
         const higherNames = [parsedTaxon.genus];
         if (parsedTaxon.subgenus) {
             higherNames.push(parsedTaxon.subgenus)
         }
+        logger.trace("higherNames = ")
+        logger.trace(higherNames)
 
         const sqlQueries = [
             `SELECT 
@@ -285,7 +412,7 @@ const updateOccurrences = async (conn, authority) => {
                 LEFT JOIN 
                     authorities a ON o.taxon_no=a.taxon_no
             WHERE 
-                genus_name IN (${higherNames.reduce((nameStr, idx, name) => {
+                genus_name IN (${higherNames.reduce((nameStr, name, idx) => {
                     if (idx === 0) return `"${name}"`
                     else return `${nameStr}, "${name}"`
                 }, "")})`, 
@@ -302,7 +429,7 @@ const updateOccurrences = async (conn, authority) => {
                 LEFT JOIN 
                     authorities a ON re.taxon_no=a.taxon_no
             WHERE 
-                genus_name IN (${higherNames.reduce((nameStr, idx, name) => {
+                genus_name IN (${higherNames.reduce((nameStr, name, idx) => {
                     if (idx === 0) return `"${name}"`
                     else return `${nameStr}, "${name}"`
                 }, "")})`,
@@ -319,7 +446,7 @@ const updateOccurrences = async (conn, authority) => {
                 LEFT JOIN 
                     authorities a ON o.taxon_no=a.taxon_no
             WHERE 
-                subgenus_name IN (${higherNames.reduce((nameStr, idx, name) => {
+                subgenus_name IN (${higherNames.reduce((nameStr, name, idx) => {
                     if (idx === 0) return `"${name}"`
                     else return `${nameStr}, "${name}"`
                 }, "")})`,
@@ -334,9 +461,9 @@ const updateOccurrences = async (conn, authority) => {
             FROM 
                 reidentifications re 
                 LEFT JOIN 
-                    authorities a ON o.taxon_no=a.taxon_no
+                    authorities a ON re.taxon_no=a.taxon_no
             WHERE 
-                subgenus_name IN (${higherNames.reduce((nameStr, idx, name) => {
+                subgenus_name IN (${higherNames.reduce((nameStr, name, idx) => {
                     if (idx === 0) return `"${name}"`
                     else return `${nameStr}, "${name}"`
                 }, "")})`    
@@ -351,11 +478,15 @@ const updateOccurrences = async (conn, authority) => {
         const results = await Promise.all(sqlQueries.map(async sqlQuery => {
             return await conn.query(sqlQuery);
         }));
+        logger.trace("results = ")
+        logger.trace(results)
 
         const matchedOccurrences = [];
         const matchedReidentifications = [];
 
         results.forEach(row => {
+            logger.trace("results iteration, row = ")
+            logger.trace(results)
             let oldMatchLevel = 0;
             let newMatchLevel = 0;
 
@@ -368,11 +499,15 @@ const updateOccurrences = async (conn, authority) => {
 
             if (row.taxon_no) {
                 const tmpParsedTaxon = parseTaxon(row.taxon_name);
-                oldMatchLevel = computMatchLevel(taxonFromRow, tmpParsedTaxon);
+                oldMatchLevel = computeMatchLevel(taxonFromRow, tmpParsedTaxon);
             }
 
-            newMatchLevel = computMatchLevel(taxonFromRow, parsedTaxon);
+            newMatchLevel = computeMatchLevel(taxonFromRow, parsedTaxon);
 
+            logger.trace("oldMatchLevel = ")
+            logger.trace(oldMatchLevel)
+            logger.trace("newMatchLevel = ")
+            logger.trace(newMatchLevel)
             if (newMatchLevel > oldMatchLevel) {
                 if (row.reid_no) { 
                     matchedReidentifications.push(row.reid_no);
@@ -382,6 +517,10 @@ const updateOccurrences = async (conn, authority) => {
             }
 
         })
+        logger.trace("matchedOccurrences = ")
+        logger.trace(matchedOccurrences)
+        logger.trace("matchedReidentifications = ")
+        logger.trace(matchedReidentifications)
 
         if (matchedOccurrences) {
             const sql = `
@@ -461,7 +600,7 @@ export const createAuthority = async (pool, authority, user, allowDuplicate) => 
 
             authority.taxon_no = res[0].taxon_no;
 
-            updateOccurrences(conn, authority)
+            await updateOccurrences(conn, authority)
                         
             await conn.commit();
             return authority;

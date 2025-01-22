@@ -72,7 +72,7 @@ export default async function (fastify, opts) {
 		error.links = errorLinks;
 		reply.code(error.statusCode).send({
 			statusCode: error.statusCode,
-			//Some razzle here to display unevaluatedProperty or allowedValues if available
+			//Some razzle here to display unevaluatedProperty or allowedValues or additionalProperty if available
 			msg: `${error.message}${
 				error.validation && error.validation[0].params && error.validation[0].params.unevaluatedProperty ?
 					`: ${error.validation[0].params.unevaluatedProperty}` :
@@ -80,6 +80,10 @@ export default async function (fastify, opts) {
 			}${
 				error.validation && error.validation[0].params && error.validation[0].params.allowedValues ?
 					`: ${error.validation[0].params.allowedValues}` :
+					''
+			}${
+				error.validation && error.validation[0].params && error.validation[0].params.additionalProperty ?
+					`: ${error.validation[0].params.additionalProperty}` :
 					''
 			}`,
 			links: errorLinks
@@ -239,7 +243,7 @@ export default async function (fastify, opts) {
 							request.userID = rows2[0].person_no;
 							request.userName = rows2[0].real_name;
 							request.authorizerID = rows2[0].authorizer_no;
-							if ('enterer' === rows2[0].role) {
+							if ('enterer' === rows2[0].role || 'authorizor' === rows2[0].role) {
 								return
 							} else {
 								const err = new Error('not authorized');

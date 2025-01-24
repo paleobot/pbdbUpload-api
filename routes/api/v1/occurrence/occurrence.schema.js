@@ -11,20 +11,36 @@ const occurrenceProperties = {
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. gen.','sensu lato','?','"','informal'],
 	},
+	genus_name: {
+		type: "string",
+		maxLength: 255
+	},
 	subgenus_reso: {
 		description: "Required if taxon_no is for a subgenus",
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. subgen.','sensu lato','?','"','informal'],
+	},
+	subgenus_name: {
+		type: "string",
+		maxLength: 255
 	},
 	species_reso: {
 		description: "Required if taxon_no is for a species",
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. sp.','sensu lato','?','"','informal'],
 	},
+	species_name: {
+		type: "string",
+		maxLength: 255
+	},
 	subspecies_reso: {
 		description: "Required if taxon_no is for a subspecies",
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. sp.','sensu lato','?','"','informal'],
+	},
+	subspecies_name: {
+		type: "string",
+		maxLength: 255
 	},
 	abund_value: {
 		type: "string",
@@ -108,7 +124,7 @@ export const createSchema = {
 				additionalProperties: false,
 				required: [
 					"collection_no",
-					"taxon_no",
+					//"taxon_no",
 					"reference_no",
                 ],
 				dependentRequired: {

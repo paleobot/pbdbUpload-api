@@ -165,52 +165,65 @@ export const createOccurrence = async (pool, occurrence, user, allowDuplicate) =
             await verifyReference(conn, occurrence.reference_no);
             await verifyCollection(conn, occurrence.collection_no);
             
-            const taxon = await fetchTaxon(conn, occurrence.taxon_no);
-            logger.trace("taxon = ")
-            logger.trace(taxon)
+            if (occurrence.taxon_no) {
+                const taxon = await fetchTaxon(conn, occurrence.taxon_no);
+                logger.trace("taxon = ")
+                logger.trace(taxon)
 
-            if (
-                ("genus" === taxon.rank && !occurrence.genus_reso) ||
-                ("subgenus" === taxon.rank && !occurrence.subgenus_reso) ||
-                ("species" === taxon.rank && !occurrence.species_reso)
-            ) {
-                const error = new Error(`Taxon has rank ${taxon.rank}. ${taxon.rank}_reso is required.`)
-                error.statusCode = 400
-                throw error
-            }
+                if (
+                    ("genus" === taxon.rank && !occurrence.genus_reso) ||
+                    ("subgenus" === taxon.rank && !occurrence.subgenus_reso) ||
+                    ("species" === taxon.rank && !occurrence.species_reso)
+                ) {
+                    const error = new Error(`Taxon has rank ${taxon.rank}. ${taxon.rank}_reso is required.`)
+                    error.statusCode = 400
+                    throw error
+                }
 
-            if ((
-                "genus" === taxon.rank && (
-                    occurrence.subgenus_reso || 
-                    occurrence.species_reso || 
-                    occurrence.subspecies_reso
-                )) ||  (
-                "subgenus" === taxon.rank && (
-                    occurrence.species_reso || 
-                    occurrence.subspecies_reso
-                )) || (
-                "species" === taxon.rank && (
-                    occurrence.subspecies_reso
-                )) 
-            ) {
-                const error = new Error(`Taxon has rank ${taxon.rank}. Resolutions below that rank are not allowed.`)
-                error.statusCode = 400
-                throw error
-            }
-        
-            //properties derived from taxon
-            insertAssets.propStr += `, genus_name`;
-            insertAssets.valStr += `, :genus_name`;
-            insertAssets.values.genus_name = taxon.genus; 
-            if (taxon.subgenus) {
-                insertAssets.propStr += ', subgenus_name';
-                insertAssets.valStr += ', :subgenus_name';
-                insertAssets.values.subgenus_name = taxon.subgenus;
-            }
-            if (taxon.species) {
-                insertAssets.propStr += ', species_name';
-                insertAssets.valStr += ', :species_name';
-                insertAssets.values.species_name = taxon.species; 
+                if ((
+                    "genus" === taxon.rank && (
+                        occurrence.subgenus_reso || 
+                        occurrence.species_reso || 
+                        occurrence.subspecies_reso
+                    )) ||  (
+                    "subgenus" === taxon.rank && (
+                        occurrence.species_reso || 
+                        occurrence.subspecies_reso
+                    )) || (
+                    "species" === taxon.rank && (
+                        occurrence.subspecies_reso
+                    )) 
+                ) {
+                    const error = new Error(`Taxon has rank ${taxon.rank}. Resolutions below that rank are not allowed.`)
+                    error.statusCode = 400
+                    throw error
+                }
+            
+                //properties derived from taxon
+                insertAssets.propStr += `, genus_name`;
+                insertAssets.valStr += `, :genus_name`;
+                insertAssets.values.genus_name = taxon.genus; 
+                if (taxon.subgenus) {
+                    insertAssets.propStr += ', subgenus_name';
+                    insertAssets.valStr += ', :subgenus_name';
+                    insertAssets.values.subgenus_name = taxon.subgenus;
+                }
+                if (taxon.species) {
+                    insertAssets.propStr += ', species_name';
+                    insertAssets.valStr += ', :species_name';
+                    insertAssets.values.species_name = taxon.species; 
+                }
+            } else {
+                if (
+                    !occurrence.genus_name &&
+                    !occurrence.subgenus_name &&
+                    !occurrence.species_name &&
+                    !occurrence.subspecies_name
+                ) {
+                    const error = new Error(`Taxon name required when taxon_no is not provided`)
+                    error.statusCode = 400
+                    throw error 
+                }
             }
 
             const insertSQL = `insert into occurrences (${insertAssets.propStr}) values (${insertAssets.valStr}) returning occurrence_no`

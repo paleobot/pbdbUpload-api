@@ -242,6 +242,10 @@ const getOriginalCombination = async(conn, taxon_no) => {
 
 const computeMatchLevel = (taxon1, taxon2) => {
     logger.trace("computeMatchLevel")
+    logger.trace("taxon1 = ") 
+    logger.trace(taxon1)
+    logger.trace("taxon2 = ") 
+    logger.trace(taxon2)
 
     let matchLevel = 0;
     if (!taxon1.genus  || !taxon2.genus) {
@@ -486,7 +490,13 @@ const updateOccurrences = async (conn, authority) => {
 
         results.forEach(row => {
             logger.trace("results iteration, row = ")
-            logger.trace(results)
+            delete row.meta
+            logger.trace(row)
+            row = row[0];
+            logger.trace(row)
+
+            if (!row) {return}
+
             let oldMatchLevel = 0;
             let newMatchLevel = 0;
 
@@ -529,8 +539,8 @@ const updateOccurrences = async (conn, authority) => {
                 SET 
                     taxon_no=${authority.taxon_no} 
                 WHERE 
-                    occurrence_no IN (${matchedOccurrences.reduce((occStr, idx, occurrenceID) => {
-                        if (idx === 0) return `"${occurenceID}"`
+                    occurrence_no IN (${matchedOccurrences.reduce((occStr, occurrenceID, idx) => {
+                        if (idx === 0) return `"${occurrenceID}"`
                         else return `${occStr}, "${occurrenceID}"`
                     }, "")})
             `
@@ -543,7 +553,7 @@ const updateOccurrences = async (conn, authority) => {
                 SET 
                     taxon_no=${authority.taxon_no} 
                 WHERE 
-                    reid_no IN (${matchedReidentifications.reduce((accStr, idx, reID) => {
+                    reid_no IN (${matchedReidentifications.reduce((accStr, reID, idx) => {
                         if (idx === 0) return `"${reID}"`
                         else return `${accStr}, "${reID}"`
                     }, "")})

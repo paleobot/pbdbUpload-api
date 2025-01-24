@@ -7,7 +7,7 @@ const occurrenceProperties = {
 	collection_no: {type: "integer"},	
 	taxon_no: {type: "integer"},	
 	genus_reso: {
-		description: "Required if taxon_no is for a genus",
+		description: "Required if taxon_no is present and is for a genus",
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. gen.','sensu lato','?','"','informal'],
 	},
@@ -16,7 +16,7 @@ const occurrenceProperties = {
 		maxLength: 255
 	},
 	subgenus_reso: {
-		description: "Required if taxon_no is for a subgenus",
+		description: "Required if taxon_no is present and is for a subgenus",
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. subgen.','sensu lato','?','"','informal'],
 	},
@@ -25,7 +25,7 @@ const occurrenceProperties = {
 		maxLength: 255
 	},
 	species_reso: {
-		description: "Required if taxon_no is for a species",
+		description: "Required if taxon_no is present and is for a species",
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. sp.','sensu lato','?','"','informal'],
 	},
@@ -34,7 +34,7 @@ const occurrenceProperties = {
 		maxLength: 255
 	},
 	subspecies_reso: {
-		description: "Required if taxon_no is for a subspecies",
+		description: "Required if taxon_no is present and is for a subspecies",
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. sp.','sensu lato','?','"','informal'],
 	},

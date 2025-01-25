@@ -145,6 +145,9 @@ export const createOccurrence = async (pool, occurrence, user, allowDuplicate) =
     logger.trace(occurrence);
     logger.trace(user)
 
+    //TODO: Not sure what's going on at OccurrenceEntry.pm line 759, 796
+    //TODO: Rewrite so that can have either taxon_no or taxon _name fields. If taxon_no, fetch names from there. Otherwise, validate passed names. Maybe?
+
     const insertAssets = prepareInsertAssets(occurrence, []);
 	insertAssets.propStr += `, enterer, enterer_no, authorizer_no`;
 	insertAssets.valStr += `, :enterer, :enterer_no, :authorizer_no`;

@@ -1,4 +1,4 @@
-import {prepareInsertAssets, prepareUpdateAssets, calcDegreesMinutesSeconds} from '../../../../util.js'
+import {prepareInsertAssets, prepareUpdateAssets, calcDegreesMinutesSeconds, parseTaxon} from '../../../../util.js'
 import {logger} from '../../../../app.js'
 
 //TODO: Review https://github.com/paleobiodb/classic/blob/master/lib/PBDB/Taxon.pm to better understand how this table is used.
@@ -96,36 +96,6 @@ export const getAuthority = async (pool, id) => {
     } finally {
       if (conn) conn.release(); //release to pool
     }
-}
-
-const parseTaxon = taxonName => {
-    let genus = "", subgenus = "", species = "", subspecies = "";
-  
-    let parsedName = taxonName.match(/^([A-Z][a-z]+)(?:\s\(([A-Z][a-z]+)\))?(?:\s([a-z.]+))?(?:\s([a-z.]+))?/);
-    if (parsedName) {
-        genus = parsedName[1] || genus;
-        subgenus = parsedName[2] || subgenus;
-        species = parsedName[3] || species;
-        subspecies = parsedName[4] || subspecies;
-    }
-
-    if (!genus && taxonName) {
-        //Loose match, capitalization doesn't matter. The % is a wildcard symbol
-        parsedName = taxonName.match(/^([a-z%]+)(?:\s\(([a-z%]+)\))?(?:\s([a-z.]+))?(?:\s([a-z.]+))?/)
-        if (parsedName) {
-            genus = parsedName[1] || genus;
-            subgenus = parsedName[2] || subgenus;
-            species = parsedName[3] || species;
-            subspecies = parsedName[4] || subspecies;
-        }
-    }
-    
-    return {
-        genus: genus,
-        subgenus: subgenus,
-        species: species,
-        subspecies: subspecies
-    };
 }
 
 const getOriginalCombination = async(conn, taxon_no) => {
@@ -488,11 +458,11 @@ const updateOccurrences = async (conn, authority) => {
         const matchedOccurrences = [];
         const matchedReidentifications = [];
 
-        results.forEach(row => {
-            logger.trace("results iteration, row = ")
-            delete row.meta
-            logger.trace(row)
-            row = row[0];
+        results.forEach(result => {
+            logger.trace("results iteration, result = ")
+            delete result.meta
+            logger.trace(result)
+            row = result[0];
             logger.trace(row)
 
             if (!row) {return}

@@ -1,6 +1,7 @@
 import {createSchema, editSchema, getSchema} from './occurrence.schema.js'
 import {getOccurrences, getOccurrence, createOccurrence, updateOccurrence} from './occurrence.model.js'
 import jmp from 'json-merge-patch'
+import {parseTaxon} from '../../../../util.js'
 
 export default async function (fastify, opts) {
     fastify.get(    	
@@ -93,6 +94,24 @@ export default async function (fastify, opts) {
 			fastify.log.trace("after stripping nulls")
 			fastify.log.trace(occurrence)
 
+			if (req.body.occurrence.taxon_name) {
+				const taxon = parseTaxon(req.body.occurrence.taxon_name);
+		
+				if (!taxon.genus ||
+					(taxon.subspecies && !taxon.species)
+				) {
+					const error = new Error(`Invalid taxon name: ${occurrence.taxon_name}`)
+					error.statusCode = 400
+					throw error
+				}
+		
+				req.body.occurrence.genus_name = taxon.genus;
+				req.body.occurrence.subgenus_name = taxon.subgenus;
+				req.body.occurrence.species_name = taxon.species;
+				req.body.occurrence.subspecies_name = taxon.subspecies;
+				delete req.body.occurrence.taxon_name;
+			}
+		
 			//merge with patch in req.body 
 			const mergedOccurrence = jmp.apply(occurrence, req.body)
 			fastify.log.trace("after merge")
@@ -108,9 +127,12 @@ export default async function (fastify, opts) {
 				return {statusCode: 400, msg: validate.errors}
 			}
 
+			const tmpNo = mergedOccurrence.occurrence.taxon_no
+
 			//Need to re-add occurrence_no after validation because fastify sets removeAdditional to true, which removes properties that aren't in validation schema. But model needs it.
 			//TODO: Also re-add taxon_name and taxon_no?
 			mergedOccurrence.occurrence.occurrence_no = parseInt(req.params.id);
+			mergedOccurrence.occurrence.taxon_no = tmpNo;
 			fastify.log.info("mergedOccurrence after validation(occurrence_no added")
 			fastify.log.info(mergedOccurrence)
 

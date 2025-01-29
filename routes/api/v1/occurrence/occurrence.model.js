@@ -289,6 +289,7 @@ export const updateOccurrence = async (pool, patch, user, allowDuplicate, merged
     logger.trace(patch);
     logger.trace(mergedOccurrence)
 
+    /*
     if (patch.taxon_name) {
         const taxon = parseTaxon(patch.taxon_name);
 
@@ -305,15 +306,23 @@ export const updateOccurrence = async (pool, patch, user, allowDuplicate, merged
         patch.species_name = taxon.species;
         patch.subspecies_name = taxon.subspecies;
         delete patch.taxon_name;
+
+        mergedOccurrence.genus_name = taxon.genus;
+        mergedOccurrence.subgenus_name = taxon.subgenus;
+        mergedOccurrence.species_name = taxon.species;
+        mergedOccurrence.subspecies_name = taxon.subspecies;
+        delete mergedOccurrence.taxon_name;
     }
+    */
 
     let conn;
     try {
         conn = await pool.getConnection();
         await conn.beginTransaction();
 
-        const taxon = await fetchClosestTaxon(conn, occurrence);
+        const taxon = await fetchClosestTaxon(conn, mergedOccurrence);
         if (taxon) {
+            patch.taxon_no = taxon.id
             mergedOccurrence.taxon_no = taxon.id
         }
 
@@ -322,7 +331,10 @@ export const updateOccurrence = async (pool, patch, user, allowDuplicate, merged
             ! await isDuplicate(conn, mergedOccurrence)
         ) {
 
-            const updateAssets = prepareUpdateAssets(patch, []);
+            patch.species_name = `${patch.species_name}${patch.subspecies_name ? ` ${patch.subspecies_name}` : ''}`;
+            delete patch.subspecies_name;
+
+        const updateAssets = prepareUpdateAssets(patch, []);
     
             updateAssets.propStr += `${updateAssets.propStr === '' ? '': ', '} modifier = :modifier, modifier_no = :modifier_no`
             updateAssets.values.modifier = user.userName; //TODO: consider stripping to first initial

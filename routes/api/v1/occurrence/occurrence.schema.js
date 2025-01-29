@@ -6,6 +6,7 @@ const occurrenceProperties = {
 	reid_no: {type: "integer"},
 	collection_no: {type: "integer"},	
 	//taxon_no: {type: "integer"},	
+	taxon_name: {type: "string"},
 	genus_reso: {
 		//description: "Required if taxon_no is present and is for a genus",
 		type: "string",

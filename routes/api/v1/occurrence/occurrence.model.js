@@ -219,7 +219,6 @@ export const createOccurrence = async (pool, occurrence, user, allowDuplicate) =
         occurrence.subgenus_name = taxon.subgenus;
         occurrence.species_name = taxon.species;
         occurrence.subspecies_name = taxon.subspecies;
-        //occurrence.species_name = `${taxon.species}${taxon.subspecies_name ? ` ${taxon.subspecies_name}` : ''}`;
         delete occurrence.taxon_name;
     }
    
@@ -232,7 +231,7 @@ export const createOccurrence = async (pool, occurrence, user, allowDuplicate) =
         if (taxon) {
             occurrence.taxon_no = taxon.id
         }
-        occurrence.species_name = `${taxon.species}${taxon.subspecies_name ? ` ${taxon.subspecies_name}` : ''}`;
+        occurrence.species_name = `${occurrence.species_name}${occurrence.subspecies_name ? ` ${occurrence.subspecies_name}` : ''}`;
         delete occurrence.subspecies_name;
 
         if (

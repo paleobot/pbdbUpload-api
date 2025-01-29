@@ -96,7 +96,7 @@ export default async function (fastify, opts) {
 			//merge with patch in req.body 
 			const mergedOccurrence = jmp.apply(occurrence, req.body)
 			fastify.log.trace("after merge")
-			fastify.log.trace(mergedOccurrence)
+			fastify.log.trace(mergedOccurrence) 
 
 			//create a validator using the createSchema
 			const validate = req.compileValidationSchema(createSchema.body);
@@ -109,6 +109,7 @@ export default async function (fastify, opts) {
 			}
 
 			//Need to re-add occurrence_no after validation because fastify sets removeAdditional to true, which removes properties that aren't in validation schema. But model needs it.
+			//TODO: Also re-add taxon_name and taxon_no?
 			mergedOccurrence.occurrence.occurrence_no = parseInt(req.params.id);
 			fastify.log.info("mergedOccurrence after validation(occurrence_no added")
 			fastify.log.info(mergedOccurrence)

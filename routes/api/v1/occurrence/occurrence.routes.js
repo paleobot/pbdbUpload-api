@@ -17,6 +17,16 @@ export default async function (fastify, opts) {
 		async (request, reply) => {
 			fastify.log.info("get handler");
 
+			if (request.query.taxonname) {
+				const taxon = parseTaxon(request.query.taxonname, true)
+				return {
+					data: {
+						taxon: taxon,
+					}
+				}
+	
+			}
+
 			const aCookieValue = request.cookies.session_id
 			fastify.log.trace(aCookieValue);
 			//throw new Error("Hogan's goat!");

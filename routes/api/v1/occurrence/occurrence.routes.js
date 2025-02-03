@@ -105,7 +105,7 @@ export default async function (fastify, opts) {
 			fastify.log.trace(occurrence)
 
 			if (req.body.occurrence.taxon_name) {
-				const taxon = parseTaxon(req.body.occurrence.taxon_name);
+				const taxon = parseTaxon(req.body.occurrence.taxon_name, true);
 		
 				if (!taxon.genus ||
 					(taxon.subspecies && !taxon.species)
@@ -119,6 +119,10 @@ export default async function (fastify, opts) {
 				req.body.occurrence.subgenus_name = taxon.subgenus;
 				req.body.occurrence.species_name = taxon.species;
 				req.body.occurrence.subspecies_name = taxon.subspecies;
+				req.body.occurrence.genus_reso = taxon.genusReso;
+				req.body.occurrence.subgenus_reso = taxon.subgenusReso;
+				req.body.occurrence.species_reso = taxon.speciesReso;
+				//req.body.occurrence.subspecies_reso = taxon.subspeciesReso;
 				delete req.body.occurrence.taxon_name;
 			}
 		

@@ -204,7 +204,7 @@ export const createOccurrence = async (pool, occurrence, user, allowDuplicate) =
     //TODO: Assign _resos from taxon name? See OccurrenceEntry.pm line 759, 796
 
     if (occurrence.taxon_name) {
-        const taxon = parseTaxon(occurrence.taxon_name);
+        const taxon = parseTaxon(occurrence.taxon_name, true);
 
         if (!taxon.genus ||
             (taxon.subspecies && !taxon.species)
@@ -215,10 +215,15 @@ export const createOccurrence = async (pool, occurrence, user, allowDuplicate) =
         }
 
         //NOTE: The occurrences table does not have a column for subspecies_name. I keep it separate here for use in fetchClosestTaxon. Then I merge it with species_name before passing the occurrence to prepareInsertAssets.
+        //NOTE2: Subspecies name and reso appears to have been added to the occurrences table aroudn 2024/08/09. Verify this and get the latest db. Then update this code.
         occurrence.genus_name = taxon.genus;
         occurrence.subgenus_name = taxon.subgenus;
         occurrence.species_name = taxon.species;
         occurrence.subspecies_name = taxon.subspecies;
+        occurrence.genus_reso = taxon.genusReso;
+        occurrence.subgenus_reso = taxon.subgenusReso;
+        occurrence.species_reso = taxon.speciesReso;
+        //occurrence.subspecies_reso = taxon.subspeciesReso;
         delete occurrence.taxon_name;
     }
    

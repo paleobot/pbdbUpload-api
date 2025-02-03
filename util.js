@@ -75,7 +75,7 @@ export const parseTaxon = (taxonName, handleResos) => {
         }
 
         //*****Genus
-        match = tmpName.match(/^\s*([?]|aff[.]|cf[.]|ex gr[.]|sensu lato)\s+(.*)/)
+        match = tmpName.match(/^\s*([?]|aff[.]|cf[.]|ex gr[.]|sensu lato)\s*(.*)/)
         if (match) {
             if (taxon.genusReso) {
                 const error = new Error(`Conflicting genus reso in ${taxonName}`);
@@ -85,7 +85,7 @@ export const parseTaxon = (taxonName, handleResos) => {
             taxon.genusReso = match[1]
             tmpName = match[2]
         }
-        match = tmpName.match(/^\s*<(.*?)>(?:\s(.*))?/)
+        match = tmpName.match(/^\s*<(.*?)>\s*(.*)/)
         if (match) {
             if (taxon.genusReso) {
                 const error = new Error(`Conflicting genus reso in ${taxonName}`);
@@ -96,7 +96,7 @@ export const parseTaxon = (taxonName, handleResos) => {
             taxon.genus = match[1]
             tmpName = match[2] || ''//`${match[1]}${match[2] ? ` ${match[2]}` : ''}`
         } else {
-            match = tmpName.match(/^\s*("?)([A-Za-z]+)("?)(?:\s(.*))?/)
+            match = tmpName.match(/^\s*("?)([A-Za-z]+)("?)(?:\s*(.*))?/)
             if (match) {
                 if (match[1]) {
                     if (taxon.genusReso) {
@@ -138,7 +138,7 @@ export const parseTaxon = (taxonName, handleResos) => {
         logger.trace("tmpName = " + tmpName)
 
         //*****Subgenus
-        match = tmpName.match(/^([?]|aff[.]|cf[.]|ex gr[.]|sensu lato)\s+([(].*)/)
+        match = tmpName.match(/^([?]|aff[.]|cf[.]|ex gr[.]|sensu lato)\s*([(].*)/)
         if (match) {
             if (taxon.subgenusReso) {
                 const error = new Error(`Conflicting subgenus reso in ${taxonName}`);
@@ -148,7 +148,7 @@ export const parseTaxon = (taxonName, handleResos) => {
             taxon.subgenusReso = match[1]
             tmpName = match[2]
         }
-        match = tmpName.match(/^[(]<(.*?)>[)](?:\s(.*))?/)
+        match = tmpName.match(/^[(]<(.*?)>[)]\s*(.*)/)
         if (match) {
             if (taxon.subgenusReso) {
                 const error = new Error(`Conflicting subgenus reso in ${taxonName}`);
@@ -159,7 +159,7 @@ export const parseTaxon = (taxonName, handleResos) => {
             taxon.subgenus = match[1]
             tmpName = match[2] || ''//`${match[1]} ${match[2]}`
         } else {
-            match = tmpName.match(/^[(]("?)([A-Za-z]+)("?)[)](?:\s(.*))?/)
+            match = tmpName.match(/^[(]("?)([A-Za-z]+)("?)[)]\s*(.*)/)
             if (match) {
                 if (match[1]) {
                     if (taxon.subgenusReso) {
@@ -208,7 +208,7 @@ export const parseTaxon = (taxonName, handleResos) => {
         logger.trace("tmpName = " + tmpName)
 
         //****Species 
-        match = tmpName.match(/^([?]|aff[.]|cf[.]|ex gr[.]|sensu lato)(?:\s(.*))?/)
+        match = tmpName.match(/^([?]|aff[.]|cf[.]|ex gr[.]|sensu lato)(?:\s*(.*))?/)
         if (match) {
             if (taxon.speciesReso) {
                 const error = new Error(`Conflicting species reso in ${taxonName}`);
@@ -229,7 +229,7 @@ export const parseTaxon = (taxonName, handleResos) => {
             taxon.species = match[1]
             tmpName = match[2] || ''//`${match[1]} ${match[2]}`
         } else {
-            match = tmpName.match(/^("?)([A-Za-z]+[.]?)("?)(?:\s(.*))?/)
+            match = tmpName.match(/^("?)([A-Za-z]+[.]?)("?)(?:\s+(.*))?/)
             if (match) {
                 if (match[1]) {
                     if (taxon.speciesReso) {

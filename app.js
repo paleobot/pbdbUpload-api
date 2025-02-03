@@ -245,10 +245,13 @@ export default async function (fastify, opts) {
 							request.authorizerID = rows2[0].authorizer_no;
 							if (
 								'enterer' === rows2[0].role || 
-								'authorizer' === rows2[0].role ||
-								('student' === rows2[0].role &&
-									['POST', 'PUT'].includes(request.method) &&
-									['references', 'collections', 'occurrences', 'specimens'].includes(request.url.match(/\/api\/v.\/([a-z]*)/)[1])  
+								'authorizer' === rows2[0].role ||( 
+									'student' === rows2[0].role && (
+										"GET" === request.method || (
+											['POST', 'PUT'].includes(request.method) &&
+											['reference', 'collection', 'occurrence', 'specimen'].includes(request.url.match(/\/api\/v.\/([a-z]*)/)[1])
+										)
+									)  
 								)
 							) {
 								return

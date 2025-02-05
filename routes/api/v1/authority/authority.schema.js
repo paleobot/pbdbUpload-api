@@ -82,8 +82,8 @@ const authorityProperties = {
 	refauth: {type: "integer"},	
 	author1init: {
 		type: "string",
-		pattern: "^(?:\\p{L}\\.? *){1,2}", //TODO: Pattern needs work. See Validaiton.pm, line 143
-		maxLength: 10
+		//pattern: "^(?:\\p{L}\\.? *){1,2}", //TODO: Pattern needs work. See Validaiton.pm, line 143
+		pattern: "^(?:[a-z]|[A-Z]\\.? *){1,2}", //TODO: Pattern needs work. See Validaiton.pm, line 143		maxLength: 10
 	},	
 	author1last: {
 		type: "string", //TODO: see Validaiton.pm, line 124

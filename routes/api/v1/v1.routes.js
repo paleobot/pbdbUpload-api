@@ -26,8 +26,10 @@ export default async function (fastify, opts) {
 				type: 'image/png',
 				content: Buffer.from(image, 'base64')
 			}]
+		},
+		uiConfig: {
+			validatorUrl: null
 		}
-		
 	});
 
   fastify.get('/', {schema: {hide: true}}, async function (request, reply) {    

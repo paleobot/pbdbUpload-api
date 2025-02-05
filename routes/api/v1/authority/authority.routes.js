@@ -86,6 +86,7 @@ export default async function (fastify, opts) {
 
 			//fetch existing collection from db
 			const authorities = await getAuthority(fastify.mariadb, req.params.id);
+			delete authorities[0].meta
 			fastify.log.trace(authorities[0])
 
 			//strip null properties

@@ -1,5 +1,6 @@
 import {prepareInsertAssets, prepareUpdateAssets, calcDegreesMinutesSeconds, parseTaxon} from '../../../../util.js'
 import {logger} from '../../../../app.js'
+import { fetchClosestTaxon } from '../occurrence/occurrence.model.js';
 
 //TODO: Review https://github.com/paleobiodb/classic/blob/master/lib/PBDB/Taxon.pm to better understand how this table is used.
 
@@ -273,7 +274,7 @@ const computeMatchLevel = (taxon1, taxon2) => {
     return matchLevel;
 }
 
-const updateOccurrences = async (conn, authority) => {
+const updateOccurrences = async (conn, authority, isUpdate) => {
     logger.trace("updateOccurrences")
 
     //TODO: Not sure why we're doing this
@@ -282,6 +283,7 @@ const updateOccurrences = async (conn, authority) => {
         return;
     }
     
+    //First, see if this authority record is a homonym.
     const tR = await conn.query (
         `select 
             a.taxon_no,
@@ -300,31 +302,6 @@ const updateOccurrences = async (conn, authority) => {
     delete tR.meta;
     logger.trace("tR = ")
     logger.trace(tR)
-
-    /*
-    const taxonNumbers = tR.reduce(async (acc, taxon, idx, taxa) => {
-        logger.trace("taxonNumber reduce iteration")
-        logger.trace(taxon)
-        const origTaxon1 = await getOriginalCombination(conn, taxon.taxon_no);
-        logger.trace("origTaxon1 = ")
-        logger.trace(origTaxon1)
-        let isSameTaxon = false;
-        await Promise.all(taxa.slice(idx+1).map(async (taxon2) => {
-            const origTaxon2 = await getOriginalCombination(conn, taxon2.taxon_no);
-            logger.trace("origTaxon1 = ")
-            logger.trace(origTaxon1)
-            isSameTaxon = ((origTaxon1 === origTaxon2) ||
-                            (taxon1.author1last && 
-                            taxon1.author1last === taxon2.author1last &&
-                            taxon1.author2last === taxon2.author2last &&
-                            taxon1.pubyr === taxon2.pubyr))
-        }))
-        if (!isSameTaxon) {
-            acc.push(taxon.taxon_no)
-        }
-        return await acc
-    }, Promise.resolve([]))
-    */
 
     const taxonNumbers = [];
     let idx = 0; 
@@ -363,6 +340,61 @@ const updateOccurrences = async (conn, authority) => {
         error.statusCode = 409;
         throw error;
     } else if (taxonNumbers.length === 1) {
+        //Not a homonym, proceed.
+
+        //If this was an update to an existing authority record, there may be occurrences whose taxon_no is no longer valid. Find all occurrence records currently fked to this authority record and reassign fk if necessary.
+        if (isUpdate) {
+            logger.trace("processing as update")
+           const tR = await conn.query (
+                `select
+                    *
+                from
+                    occurrences
+                where
+                    taxon_no = ?`,
+                [authority.taxon_no]
+            );
+            delete tR.meta;
+            logger.trace("tR = ")
+            logger.trace(tR)
+    
+            for (const occurrence of tR) {
+                logger.trace("tR iteration, occurrence = ")
+                delete occurrence.meta
+                logger.trace(occurrence)
+    
+                const newTaxon = await fetchClosestTaxon(conn, occurrence)
+                logger.trace("newTaxon = ")
+                logger.trace(newTaxon)
+    
+                if (newTaxon.id !== occurrence.taxon_no) {
+                    /* This threw a sql error around ":taxon_no". No idea why
+                    await conn.query(
+                        `update
+                            occurrences
+                        set
+                            taxon_no = :taxon_no
+                        where
+                            occurrence_no = :occurrence_no`,
+                        {
+                            taxon_no: newTaxon.id, 
+                            occurrence_no: occurrence.occurrence_no
+                        }
+                    )
+                    */
+                    await conn.query(
+                        `update
+                            occurrences
+                        set
+                            taxon_no = ${newTaxon.id}
+                        where
+                            occurrence_no = ${occurrence.occurrence_no}`
+                    )
+                }
+            }
+        } 
+
+        //Find all occurrence records to which this new authority should be applied
         const parsedTaxon = parseTaxon(authority.taxon_name)
         logger.trace("parsedTaxon =")
         logger.trace(parsedTaxon)
@@ -640,7 +672,7 @@ export const updateAuthority = async (pool, patch, user, allowDuplicate, mergedA
                 sql: updateSQL
             }, updateAssets.values);
 
-            await updateOccurrences(conn, mergedAuthority)
+            await updateOccurrences(conn, mergedAuthority, true)
 
             await conn.commit();
             return res;

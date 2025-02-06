@@ -90,7 +90,7 @@ const fetchTaxon = async (conn, taxonID) => {
 }
 */
 
-const fetchClosestTaxon = async (conn, occurrence) => {
+export const fetchClosestTaxon = async (conn, occurrence) => {
     logger.trace("fetchClosestTaxon")
 
     const sql = `

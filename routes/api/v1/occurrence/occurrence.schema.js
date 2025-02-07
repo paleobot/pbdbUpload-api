@@ -94,6 +94,9 @@ export const editSchema = {
 			},
 			allowDuplicate: {
 				type: "boolean"
+			},
+			bypassTaxon: {
+				type: "boolean"
 			}
 		},
 		examples: [{
@@ -145,6 +148,9 @@ export const createSchema = {
 				
 			},
 			allowDuplicate: {
+				type: "boolean"
+			},
+			bypassTaxon: {
 				type: "boolean"
 			}
       	},

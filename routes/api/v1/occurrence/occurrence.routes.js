@@ -75,7 +75,7 @@ export default async function (fastify, opts) {
 			fastify.log.info("occurrence POST")
 			fastify.log.trace(req.body)
 	
-			const newOccurrence = await createOccurrence(fastify.mariadb, req.body.occurrence, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate)
+			const newOccurrence = await createOccurrence(fastify.mariadb, req.body.occurrence, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate, req.body.bypassTaxon)
 		
 			return {statusCode: 201, msg: "occurrence created", occurrence_no: newOccurrence.occurrence_no}
 		}
@@ -150,7 +150,7 @@ export default async function (fastify, opts) {
 			fastify.log.info("mergedOccurrence after validation(occurrence_no added")
 			fastify.log.info(mergedOccurrence)
 
-			await updateOccurrence(fastify.mariadb, req.body.occurrence, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate, mergedOccurrence.occurrence)
+			await updateOccurrence(fastify.mariadb, req.body.occurrence, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate, req.body.bypassTaxon, mergedOccurrence.occurrence)
 
 			return {statusCode: 204, msg: "Occurrence modified"}
   		}

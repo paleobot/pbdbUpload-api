@@ -129,6 +129,14 @@ export const fetchClosestTaxon = async (conn, occurrence) => {
         return null
     }
 
+    if (taxonResult.length > 1) {
+        if (taxonResult[0].taxon_rank === taxonResult[1].taxon_rank) {
+            const error = new Error(`Cannot assign taxon. The nearest taxon name (${taxonResult[0].taxon_name}) is a homonym. If this is expected, then resubmit with bypassTaxon set to true.`);
+            error.statusCode = 409;
+            throw error;
+        }
+    }
+    
     logger.trace(taxonResult[0])
 
     const taxonParsed = [...taxonResult[0].taxon_name.matchAll(/^(?:(\p{Lu}\p{Ll}*) ?)(?:\((\p{Lu}\p{Ll}*)\) ?)?(\p{Ll}*)?(?: (\p{Ll}*))?/gu)]
@@ -196,7 +204,7 @@ export const getOccurrence = async (pool, id) => {
     }
 }
 
-export const createOccurrence = async (pool, occurrence, user, allowDuplicate) => {
+export const createOccurrence = async (pool, occurrence, user, allowDuplicate, bypassTaxon) => {
     logger.info("createOccurrence");
     logger.trace(occurrence);
     logger.trace(user)
@@ -232,9 +240,11 @@ export const createOccurrence = async (pool, occurrence, user, allowDuplicate) =
         conn = await pool.getConnection();
         await conn.beginTransaction();
 
-        const taxon = await fetchClosestTaxon(conn, occurrence);
-        if (taxon) {
-            occurrence.taxon_no = taxon.id
+        if (!bypassTaxon) {
+            const taxon = await fetchClosestTaxon(conn, occurrence);
+            if (taxon) {
+                occurrence.taxon_no = taxon.id
+            }
         }
         occurrence.species_name = `${occurrence.species_name}${occurrence.subspecies_name ? ` ${occurrence.subspecies_name}` : ''}`;
         delete occurrence.subspecies_name;
@@ -288,7 +298,7 @@ export const createOccurrence = async (pool, occurrence, user, allowDuplicate) =
     }
 }
 
-export const updateOccurrence = async (pool, patch, user, allowDuplicate, mergedOccurrence) => {
+export const updateOccurrence = async (pool, patch, user, allowDuplicate, bypassTaxon, mergedOccurrence) => {
     logger.info("updateOccurrence");
     logger.trace(user)
     logger.trace(patch);
@@ -325,10 +335,12 @@ export const updateOccurrence = async (pool, patch, user, allowDuplicate, merged
         conn = await pool.getConnection();
         await conn.beginTransaction();
 
-        const taxon = await fetchClosestTaxon(conn, mergedOccurrence);
-        if (taxon) {
-            patch.taxon_no = taxon.id
-            mergedOccurrence.taxon_no = taxon.id
+        if (!bypassTaxon) {
+            const taxon = await fetchClosestTaxon(conn, mergedOccurrence);
+            if (taxon) {
+                patch.taxon_no = taxon.id
+                mergedOccurrence.taxon_no = taxon.id
+            }
         }
 
         if (
@@ -339,7 +351,7 @@ export const updateOccurrence = async (pool, patch, user, allowDuplicate, merged
             patch.species_name = `${patch.species_name}${patch.subspecies_name ? ` ${patch.subspecies_name}` : ''}`;
             delete patch.subspecies_name;
 
-        const updateAssets = prepareUpdateAssets(patch, []);
+            const updateAssets = prepareUpdateAssets(patch, []);
     
             updateAssets.propStr += `${updateAssets.propStr === '' ? '': ', '} modifier = :modifier, modifier_no = :modifier_no`
             updateAssets.values.modifier = user.userName; //TODO: consider stripping to first initial

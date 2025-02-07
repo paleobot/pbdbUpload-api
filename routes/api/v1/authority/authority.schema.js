@@ -5,7 +5,7 @@ Validation schemas in JSON Schema format. Note that fastify uses ajv (https://aj
 const currentYear = new Date(Date.now()).getFullYear();
 
 const authorityProperties = {
-	taxon_no: {type: "integer"},
+	//taxon_no: {type: "integer"},
 	orig_no: {type: "integer"},	
 	reference_no: {type: "integer"},	
 	taxon_rank: {
@@ -305,6 +305,9 @@ export const createSchema = {
 				}],
 			},
 			allowDuplicate: {
+				type: "boolean"
+			},
+			bypassOccurrences: {
 				type: "boolean"
 			}
       	},

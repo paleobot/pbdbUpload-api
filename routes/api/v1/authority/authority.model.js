@@ -274,16 +274,7 @@ const computeMatchLevel = (taxon1, taxon2) => {
     return matchLevel;
 }
 
-const updateOccurrences = async (conn, authority, isUpdate) => {
-    logger.trace("updateOccurrences")
-
-    //TODO: Not sure why we're doing this
-    if ("subspecies" === authority.taxon_rank) {
-        logger.trace("subspecies, returning")
-        return;
-    }
-    
-    //First, see if this authority record is a homonym.
+const isHomonym = async (conn, authority) => {
     const tR = await conn.query (
         `select 
             a.taxon_no,
@@ -333,242 +324,244 @@ const updateOccurrences = async (conn, authority, isUpdate) => {
     logger.trace("taxonNumbers = ")
     logger.trace(taxonNumbers)
 
-    if (taxonNumbers.length > 1) {
-        logger.trace("Too many taxonNumbers. Throwing error")
-        //TODO: No idea if this is the correct action.
-        const error = new Error(`${authority.taxon_name} is a homonym. Occurrences of it may be incorrectly classified.  Please reclassify occurrences of this taxon.`);
-        error.statusCode = 409;
-        throw error;
-    } else if (taxonNumbers.length === 1) {
-        //Not a homonym, proceed.
+    return (taxonNumbers.length > 1)
+}
 
-        //If this was an update to an existing authority record, there may be occurrences whose taxon_no is no longer valid. Find all occurrence records currently fked to this authority record and reassign fk if necessary.
-        if (isUpdate) {
-            logger.trace("processing as update")
-           const tR = await conn.query (
-                `select
-                    *
-                from
-                    occurrences
-                where
-                    taxon_no = ?`,
-                [authority.taxon_no]
-            );
-            delete tR.meta;
-            logger.trace("tR = ")
-            logger.trace(tR)
+const updateOccurrences = async (conn, authority, isUpdate) => {
+    logger.trace("updateOccurrences")
+
+    //TODO: Not sure why we're doing this
+    if ("subspecies" === authority.taxon_rank) {
+        logger.trace("subspecies, returning")
+        return;
+    }
     
-            for (const occurrence of tR) {
-                logger.trace("tR iteration, occurrence = ")
-                delete occurrence.meta
-                logger.trace(occurrence)
-    
-                const newTaxon = await fetchClosestTaxon(conn, occurrence)
-                logger.trace("newTaxon = ")
-                logger.trace(newTaxon)
-    
-                if (newTaxon.id !== occurrence.taxon_no) {
-                    /* This threw a sql error around ":taxon_no". No idea why
-                    await conn.query(
-                        `update
-                            occurrences
-                        set
-                            taxon_no = :taxon_no
-                        where
-                            occurrence_no = :occurrence_no`,
-                        {
-                            taxon_no: newTaxon.id, 
-                            occurrence_no: occurrence.occurrence_no
-                        }
-                    )
-                    */
-                    await conn.query(
-                        `update
-                            occurrences
-                        set
-                            taxon_no = ${newTaxon.id}
-                        where
-                            occurrence_no = ${occurrence.occurrence_no}`
-                    )
-                }
-            }
-        } 
+    //If this was an update to an existing authority record, there may be occurrences whose taxon_no is no longer valid. Find all occurrence records currently fked to this authority record and reassign fk if necessary.
+    if (isUpdate) {
+        logger.trace("processing as update")
+        const tR = await conn.query (
+            `select
+                *
+            from
+                occurrences
+            where
+                taxon_no = ?`,
+            [authority.taxon_no]
+        );
+        delete tR.meta;
+        logger.trace("tR = ")
+        logger.trace(tR)
 
-        //Find all occurrence records to which this new authority should be applied
-        const parsedTaxon = parseTaxon(authority.taxon_name)
-        logger.trace("parsedTaxon =")
-        logger.trace(parsedTaxon)
-        const higherNames = [parsedTaxon.genus];
-        if (parsedTaxon.subgenus) {
-            higherNames.push(parsedTaxon.subgenus)
-        }
-        logger.trace("higherNames = ")
-        logger.trace(higherNames)
+        for (const occurrence of tR) {
+            logger.trace("tR iteration, occurrence = ")
+            delete occurrence.meta
+            logger.trace(occurrence)
 
-        const sqlQueries = [
-            `SELECT 
-                o.occurrence_no,
-                o.taxon_no,
-                o.genus_name,
-                o.subgenus_name,
-                o.species_name,
-                a.taxon_name,
-                a.taxon_rank 
-            FROM 
-                occurrences o 
-                LEFT JOIN 
-                    authorities a ON o.taxon_no=a.taxon_no
-            WHERE 
-                o.genus_name IN (${higherNames.reduce((nameStr, name, idx) => {
-                    if (idx === 0) return `"${name}"`
-                    else return `${nameStr}, "${name}"`
-                }, "")})`, 
-            `SELECT 
-                re.reid_no,
-                re.taxon_no,
-                re.genus_name,
-                re.subgenus_name,
-                re.species_name,
-                a.taxon_name,
-                a.taxon_rank            
-            FROM 
-                reidentifications re 
-                LEFT JOIN 
-                    authorities a ON re.taxon_no=a.taxon_no
-            WHERE 
-                re.genus_name IN (${higherNames.reduce((nameStr, name, idx) => {
-                    if (idx === 0) return `"${name}"`
-                    else return `${nameStr}, "${name}"`
-                }, "")})`,
-            `SELECT 
-                o.occurrence_no,
-                o.taxon_no,
-                o.genus_name,
-                o.subgenus_name,
-                o.species_name,
-                a.taxon_name,
-                a.taxon_rank 
-            FROM 
-                occurrences o 
-                LEFT JOIN 
-                    authorities a ON o.taxon_no=a.taxon_no
-            WHERE 
-                o.subgenus_name IN (${higherNames.reduce((nameStr, name, idx) => {
-                    if (idx === 0) return `"${name}"`
-                    else return `${nameStr}, "${name}"`
-                }, "")})`,
-            `SELECT 
-                re.reid_no,
-                re.taxon_no,
-                re.genus_name,
-                re.subgenus_name,
-                re.species_name,
-                a.taxon_name,
-                a.taxon_rank            
-            FROM 
-                reidentifications re 
-                LEFT JOIN 
-                    authorities a ON re.taxon_no=a.taxon_no
-            WHERE 
-                re.subgenus_name IN (${higherNames.reduce((nameStr, name, idx) => {
-                    if (idx === 0) return `"${name}"`
-                    else return `${nameStr}, "${name}"`
-                }, "")})`    
-        ];
-        if (parsedTaxon.species) {
-            sqlQueries[0] = `${sqlQueries[0]} AND o.species_name LIKE "${parsedTaxon.species}"`;
-            sqlQueries[1] = `${sqlQueries[1]} AND re.species_name LIKE "${parsedTaxon.species}"`;
-            sqlQueries[2] = `${sqlQueries[2]} AND o.species_name LIKE "${parsedTaxon.species}"`;
-            sqlQueries[3] = `${sqlQueries[3]} AND re.species_name LIKE "${parsedTaxon.species}"`;
-        }
+            const newTaxon = await fetchClosestTaxon(conn, occurrence)
+            logger.trace("newTaxon = ")
+            logger.trace(newTaxon)
 
-        const results = await Promise.all(sqlQueries.map(async sqlQuery => {
-            return await conn.query(sqlQuery);
-        }));
-        logger.trace("results = ")
-        logger.trace(results)
-
-        const matchedOccurrences = [];
-        const matchedReidentifications = [];
-
-        for (const result of results) {
-            logger.trace("results iteration, result = ")
-            delete result.meta
-            logger.trace(result)
-
-            for (const row of result) {
-                logger.trace("result iteration, row = ")
-                delete row.meta
-                logger.trace(row)
-
-                let oldMatchLevel = 0;
-                let newMatchLevel = 0;
-    
-                const taxonFromRow = {
-                    genus: row.genus_name,
-                    subgenus: row.subgenus_name,
-                    species: row.species_name,
-                    subspecies: row.subspecies_name
-                }
-    
-                if (row.taxon_no) {
-                    const tmpParsedTaxon = parseTaxon(row.taxon_name);
-                    oldMatchLevel = computeMatchLevel(taxonFromRow, tmpParsedTaxon);
-                }
-    
-                newMatchLevel = computeMatchLevel(taxonFromRow, parsedTaxon);
-    
-                logger.trace("oldMatchLevel = ")
-                logger.trace(oldMatchLevel)
-                logger.trace("newMatchLevel = ")
-                logger.trace(newMatchLevel)
-                if (newMatchLevel > oldMatchLevel) {
-                    if (row.reid_no) { 
-                        matchedReidentifications.push(row.reid_no);
-                    } else {
-                        matchedOccurrences.push(row.occurrence_no);
+            if (newTaxon.id !== occurrence.taxon_no) {
+                /* This threw a sql error around ":taxon_no". No idea why
+                await conn.query(
+                    `update
+                        occurrences
+                    set
+                        taxon_no = :taxon_no
+                    where
+                        occurrence_no = :occurrence_no`,
+                    {
+                        taxon_no: newTaxon.id, 
+                        occurrence_no: occurrence.occurrence_no
                     }
-                }
-    
+                )
+                */
+                await conn.query(
+                    `update
+                        occurrences
+                    set
+                        taxon_no = ${newTaxon.id}
+                    where
+                        occurrence_no = ${occurrence.occurrence_no}`
+                )
             }
         }
-        logger.trace("matchedOccurrences = ")
-        logger.trace(matchedOccurrences)
-        logger.trace("matchedReidentifications = ")
-        logger.trace(matchedReidentifications)
+    } 
 
-        if (matchedOccurrences && matchedOccurrences.length > 0) {
-            const sql = `
-                UPDATE 
-                    occurrences 
-                SET 
-                    taxon_no=${authority.taxon_no} 
-                WHERE 
-                    occurrence_no IN (${matchedOccurrences.reduce((occStr, occurrenceID, idx) => {
-                        if (idx === 0) return `"${occurrenceID}"`
-                        else return `${occStr}, "${occurrenceID}"`
-                    }, "")})
-            `
-           await conn.query(sql);
+    //Find all occurrence records to which this new authority should be applied
+    const parsedTaxon = parseTaxon(authority.taxon_name)
+    logger.trace("parsedTaxon =")
+    logger.trace(parsedTaxon)
+    const higherNames = [parsedTaxon.genus];
+    if (parsedTaxon.subgenus) {
+        higherNames.push(parsedTaxon.subgenus)
+    }
+    logger.trace("higherNames = ")
+    logger.trace(higherNames)
+
+    const sqlQueries = [
+        `SELECT 
+            o.occurrence_no,
+            o.taxon_no,
+            o.genus_name,
+            o.subgenus_name,
+            o.species_name,
+            a.taxon_name,
+            a.taxon_rank 
+        FROM 
+            occurrences o 
+            LEFT JOIN 
+                authorities a ON o.taxon_no=a.taxon_no
+        WHERE 
+            o.genus_name IN (${higherNames.reduce((nameStr, name, idx) => {
+                if (idx === 0) return `"${name}"`
+                else return `${nameStr}, "${name}"`
+            }, "")})`, 
+        `SELECT 
+            re.reid_no,
+            re.taxon_no,
+            re.genus_name,
+            re.subgenus_name,
+            re.species_name,
+            a.taxon_name,
+            a.taxon_rank            
+        FROM 
+            reidentifications re 
+            LEFT JOIN 
+                authorities a ON re.taxon_no=a.taxon_no
+        WHERE 
+            re.genus_name IN (${higherNames.reduce((nameStr, name, idx) => {
+                if (idx === 0) return `"${name}"`
+                else return `${nameStr}, "${name}"`
+            }, "")})`,
+        `SELECT 
+            o.occurrence_no,
+            o.taxon_no,
+            o.genus_name,
+            o.subgenus_name,
+            o.species_name,
+            a.taxon_name,
+            a.taxon_rank 
+        FROM 
+            occurrences o 
+            LEFT JOIN 
+                authorities a ON o.taxon_no=a.taxon_no
+        WHERE 
+            o.subgenus_name IN (${higherNames.reduce((nameStr, name, idx) => {
+                if (idx === 0) return `"${name}"`
+                else return `${nameStr}, "${name}"`
+            }, "")})`,
+        `SELECT 
+            re.reid_no,
+            re.taxon_no,
+            re.genus_name,
+            re.subgenus_name,
+            re.species_name,
+            a.taxon_name,
+            a.taxon_rank            
+        FROM 
+            reidentifications re 
+            LEFT JOIN 
+                authorities a ON re.taxon_no=a.taxon_no
+        WHERE 
+            re.subgenus_name IN (${higherNames.reduce((nameStr, name, idx) => {
+                if (idx === 0) return `"${name}"`
+                else return `${nameStr}, "${name}"`
+            }, "")})`    
+    ];
+    if (parsedTaxon.species) {
+        sqlQueries[0] = `${sqlQueries[0]} AND o.species_name LIKE "${parsedTaxon.species}"`;
+        sqlQueries[1] = `${sqlQueries[1]} AND re.species_name LIKE "${parsedTaxon.species}"`;
+        sqlQueries[2] = `${sqlQueries[2]} AND o.species_name LIKE "${parsedTaxon.species}"`;
+        sqlQueries[3] = `${sqlQueries[3]} AND re.species_name LIKE "${parsedTaxon.species}"`;
+    }
+
+    const results = await Promise.all(sqlQueries.map(async sqlQuery => {
+        return await conn.query(sqlQuery);
+    }));
+    logger.trace("results = ")
+    logger.trace(results)
+
+    const matchedOccurrences = [];
+    const matchedReidentifications = [];
+
+    for (const result of results) {
+        logger.trace("results iteration, result = ")
+        delete result.meta
+        logger.trace(result)
+
+        for (const row of result) {
+            logger.trace("result iteration, row = ")
+            delete row.meta
+            logger.trace(row)
+
+            let oldMatchLevel = 0;
+            let newMatchLevel = 0;
+
+            const taxonFromRow = {
+                genus: row.genus_name,
+                subgenus: row.subgenus_name,
+                species: row.species_name,
+                subspecies: row.subspecies_name
+            }
+
+            if (row.taxon_no) {
+                const tmpParsedTaxon = parseTaxon(row.taxon_name);
+                oldMatchLevel = computeMatchLevel(taxonFromRow, tmpParsedTaxon);
+            }
+
+            newMatchLevel = computeMatchLevel(taxonFromRow, parsedTaxon);
+
+            logger.trace("oldMatchLevel = ")
+            logger.trace(oldMatchLevel)
+            logger.trace("newMatchLevel = ")
+            logger.trace(newMatchLevel)
+            if (newMatchLevel > oldMatchLevel) {
+                if (row.reid_no) { 
+                    matchedReidentifications.push(row.reid_no);
+                } else {
+                    matchedOccurrences.push(row.occurrence_no);
+                }
+            }
+
         }
-        if (matchedReidentifications && matchedReidentifications.length > 0) {
-            const sql = `
-                UPDATE 
-                    reidentifications 
-                SET 
-                    taxon_no=${authority.taxon_no} 
-                WHERE 
-                    reid_no IN (${matchedReidentifications.reduce((accStr, reID, idx) => {
-                        if (idx === 0) return `"${reID}"`
-                        else return `${accStr}, "${reID}"`
-                    }, "")})
-            `
-            await conn.query(sql);
-        }
+    }
+    logger.trace("matchedOccurrences = ")
+    logger.trace(matchedOccurrences)
+    logger.trace("matchedReidentifications = ")
+    logger.trace(matchedReidentifications)
+
+    if (matchedOccurrences && matchedOccurrences.length > 0) {
+        const sql = `
+            UPDATE 
+                occurrences 
+            SET 
+                taxon_no=${authority.taxon_no} 
+            WHERE 
+                occurrence_no IN (${matchedOccurrences.reduce((occStr, occurrenceID, idx) => {
+                    if (idx === 0) return `"${occurrenceID}"`
+                    else return `${occStr}, "${occurrenceID}"`
+                }, "")})
+        `
+        await conn.query(sql);
+    }
+    if (matchedReidentifications && matchedReidentifications.length > 0) {
+        const sql = `
+            UPDATE 
+                reidentifications 
+            SET 
+                taxon_no=${authority.taxon_no} 
+            WHERE 
+                reid_no IN (${matchedReidentifications.reduce((accStr, reID, idx) => {
+                    if (idx === 0) return `"${reID}"`
+                    else return `${accStr}, "${reID}"`
+                }, "")})
+        `
+        await conn.query(sql);
     }
 }
 
-export const createAuthority = async (pool, authority, user, allowDuplicate) => {
+export const createAuthority = async (pool, authority, user, allowDuplicate, bypassOccurrences) => {
     logger.info("createAuthority");
     logger.trace(authority);
     logger.trace(user)
@@ -614,7 +607,15 @@ export const createAuthority = async (pool, authority, user, allowDuplicate) => 
 
             authority.taxon_no = res[0].taxon_no;
 
-            await updateOccurrences(conn, authority)
+            if (!bypassOccurrences) {
+                if (await isHomonym(conn, authority)) {
+                    const error = new Error(`${authority.taxon_name} is a homonym. Occurrences cannot be updated. If this was intentional, then resubmit with bypassOccurrences set to true and reclassify occurrences manually.`);
+                    error.statusCode = 409;
+                    throw error;
+                } else {
+                    await updateOccurrences(conn, authority)
+                }
+            }
                         
             await conn.commit();
             return authority;
@@ -634,7 +635,7 @@ export const createAuthority = async (pool, authority, user, allowDuplicate) => 
     }
 }
 
-export const updateAuthority = async (pool, patch, user, allowDuplicate, mergedAuthority) => {
+export const updateAuthority = async (pool, patch, user, allowDuplicate, bypassOccurrences, mergedAuthority) => {
     logger.info("updateAuthority");
     logger.trace(user)
     logger.trace(patch);
@@ -672,7 +673,15 @@ export const updateAuthority = async (pool, patch, user, allowDuplicate, mergedA
                 sql: updateSQL
             }, updateAssets.values);
 
-            await updateOccurrences(conn, mergedAuthority, true)
+            if (!bypassOccurrences) {
+                if (await isHomonym(conn, mergedAuthority)) {
+                    const error = new Error(`${mergedAuthority.taxon_name} is a homonym. Occurrences cannot be updated. If this was intentional, then resubmit with bypassOccurrences set to true and reclassify occurrences manually.`);
+                    error.statusCode = 409;
+                    throw error;
+                } else {
+                    await updateOccurrences(conn, mergedAuthority, true)
+                }
+            }
 
             await conn.commit();
             return res;

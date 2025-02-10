@@ -86,6 +86,13 @@ export default async function (fastify, opts) {
 
 			//fetch existing collection from db
 			const reidentifications = await getReidentification(fastify.mariadb, req.params.id);
+
+			if (!reidentifications || reidentifications.length === 0) {
+				const error = new Error(`Unrecognized reidentification: ${req.params.id}`);
+				error.statusCode = 400
+				throw error
+			}
+
 			fastify.log.trace(reidentifications[0])
 
 			//strip null properties

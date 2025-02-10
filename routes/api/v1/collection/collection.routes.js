@@ -59,6 +59,13 @@ export default async function (fastify, opts) {
 
 			//fetch existing collection from db
 			const collections = await getCollection(fastify.mariadb, req.params.id);
+
+			if (!collections || collections.length === 0) {
+				const error = new Error(`Unrecognized collection: ${req.params.id}`);
+				error.statusCode = 400
+				throw error
+			}
+
 			fastify.log.trace(collections[0])
 
 			//strip null properties

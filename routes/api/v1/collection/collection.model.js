@@ -80,8 +80,13 @@ export const getCollection = async (pool, id) => {
             c.collection_no = r.collection_no
       `, [id])
 
+      delete rows.meta
       logger.trace(rows)
 
+      if (!rows || !rows.length > 0 || !rows.collection_no) {
+        return null
+      }
+      
       //Need to convert validating date fields to ISO string
       rows.forEach(row => {
         row.release_date = row.release_date.toISOString();

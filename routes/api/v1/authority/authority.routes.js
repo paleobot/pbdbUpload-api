@@ -86,6 +86,13 @@ export default async function (fastify, opts) {
 
 			//fetch existing collection from db
 			const authorities = await getAuthority(fastify.mariadb, req.params.id);
+
+			if (!authorities || authorities.length === 0) {
+				const error = new Error(`Unrecognized authority: ${req.params.id}`);
+				error.statusCode = 400
+				throw error
+			}
+
 			delete authorities[0].meta
 			fastify.log.trace(authorities[0])
 

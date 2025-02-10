@@ -86,6 +86,13 @@ export default async function (fastify, opts) {
 
 			//fetch existing collection from db
 			const specimens = await getSpecimen(fastify.mariadb, req.params.id);
+
+			if (!specimens || specimens.length === 0) {
+				const error = new Error(`Unrecognized specimen: ${req.params.id}`);
+				error.statusCode = 400
+				throw error
+			}
+
 			fastify.log.trace(specimens[0])
 
 			//strip null properties

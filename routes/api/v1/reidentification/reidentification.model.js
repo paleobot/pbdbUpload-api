@@ -1,5 +1,6 @@
-import {prepareInsertAssets, prepareUpdateAssets, calcDegreesMinutesSeconds} from '../../../../util.js'
+import {prepareInsertAssets, prepareUpdateAssets, calcDegreesMinutesSeconds, parseTaxon} from '../../../../util.js'
 import {logger} from '../../../../app.js'
+import { fetchClosestTaxon } from '../occurrence/occurrence.model.js';
 
 //TODO: Review https://github.com/paleobiodb/classic/blob/master/lib/PBDB/Reclassify.pm to better understand how this table is used.
 
@@ -105,6 +106,11 @@ const updatePerson = async (conn, user) => {
     if (rs.affectedRows !== 1) throw new Error("Could not update person table");
 }
 
+const updateOccurrence = async (conn, occurrenceID, reID) => {
+    const rs = await conn.query("update occurrence set reid_no = :reID where occurrence_no = :occurrenceID", {occurrenceID: occurrenceID, reID: reID});
+    if (rs.affectedRows !== 1) throw new Error("Could not update occurrence table");
+}
+
 export const getReidentifications = async (pool, limit, offset) => {
     //logger.info("getReferences");
     let conn;
@@ -152,7 +158,7 @@ export const getReidentification = async (pool, id) => {
     }
 }
 
-export const createReidentification = async (pool, reidentification, user, allowDuplicate) => {
+export const createReidentification = async (pool, reidentification, user, allowDuplicate, bypassTaxon) => {
     logger.info("createReidentification");
     logger.trace(reidentification);
     logger.trace(user)
@@ -164,10 +170,71 @@ export const createReidentification = async (pool, reidentification, user, allow
     insertAssets.values.enterer_no = user.userID;
     insertAssets.values.authorizer_no = user.authorizerID;
    
+    if (reidentification.taxon_name) {
+        const taxon = parseTaxon(reidentification.taxon_name, true);
+
+        if (!taxon.genus ||
+            (taxon.subspecies && !taxon.species)
+        ) {
+            const error = new Error(`Invalid taxon name: ${reidentification.taxon_name}`)
+            error.statusCode = 400
+            throw error
+        }
+
+        //NOTE: The reidentifications table does not have a column for subspecies_name. I keep it separate here for use in fetchClosestTaxon. Then I merge it with species_name before passing the occurrence to prepareInsertAssets.
+        //NOTE2: Subspecies name and reso appears to have been added to the occurrences table aroudn 2024/08/09. Verify this and get the latest db. Then update this code.
+        reidentification.genus_name = taxon.genus;
+        reidentification.subgenus_name = taxon.subgenus;
+        reidentification.species_name = taxon.species;
+        reidentification.subspecies_name = taxon.subspecies;
+        reidentification.genus_reso = taxon.genusReso;
+        reidentification.subgenus_reso = taxon.subgenusReso;
+        occurreidentificationrence.species_reso = taxon.speciesReso;
+        //reidentification.subspecies_reso = taxon.subspeciesReso;
+        delete reidentification.taxon_name;
+    }
+
     let conn;
     try {
         conn = await pool.getConnection();
         await conn.beginTransaction();
+
+        if (!bypassTaxon) {
+            const taxon = await fetchClosestTaxon(conn, reidentification);
+            if (taxon) {
+                reidentification.taxon_no = taxon.id
+                if (
+                    ("genus" === taxon.rank && !reidentification.genus_reso) ||
+                    ("subgenus" === taxon.rank && !reidentification.subgenus_reso) ||
+                    ("species" === taxon.rank && !reidentification.species_reso)
+                ) {
+                    const error = new Error(`Taxon has rank ${taxon.rank}. ${taxon.rank}_reso is required.`)
+                    error.statusCode = 400
+                    throw error
+                }
+    
+                if ((
+                    "genus" === taxon.rank && (
+                        reidentification.subgenus_reso || 
+                        reidentification.species_reso || 
+                        reidentification.subspecies_reso
+                    )) ||  (
+                    "subgenus" === taxon.rank && (
+                        reidentification.species_reso || 
+                        reidentification.subspecies_reso
+                    )) || (
+                    "species" === taxon.rank && (
+                        reidentification.subspecies_reso
+                    )) 
+                ) {
+                    const error = new Error(`Taxon has rank ${taxon.rank}. Resolutions below that rank are not allowed.`)
+                    error.statusCode = 400
+                    throw error
+                }
+            }
+        }
+        reidentification.species_name = `${reidentification.species_name}${reidentification.subspecies_name ? ` ${reidentification.subspecies_name}` : ''}`;
+        delete reidentification.subspecies_name;
 
         if (
             allowDuplicate || 
@@ -178,53 +245,12 @@ export const createReidentification = async (pool, reidentification, user, allow
             await verifyCollection(conn, reidentification.collection_no);
             await verifyOccurrence(conn, reidentification.occurrence_no);
             
-            const taxon = await fetchTaxon(conn, reidentification.taxon_no);
-            logger.trace("taxon = ")
-            logger.trace(taxon)
-
-            if (
-                ("genus" === taxon.rank && !reidentification.genus_reso) ||
-                ("subgenus" === taxon.rank && !reidentification.subgenus_reso) ||
-                ("species" === taxon.rank && !reidentification.species_reso)
-            ) {
-                const error = new Error(`Taxon has rank ${taxon.rank}. ${taxon.rank}_reso is required.`)
-                error.statusCode = 400
-                throw error
-            }
-
-            if ((
-                "genus" === taxon.rank && (
-                    reidentification.subgenus_reso || 
-                    reidentification.species_reso || 
-                    reidentification.subspecies_reso
-                )) ||  (
-                "subgenus" === taxon.rank && (
-                    reidentification.species_reso || 
-                    reidentification.subspecies_reso
-                )) || (
-                "species" === taxon.rank && (
-                    reidentification.subspecies_reso
-                )) 
-            ) {
-                const error = new Error(`Taxon has rank ${taxon.rank}. Resolutions below that rank are not allowed.`)
-                error.statusCode = 400
-                throw error
-            }
-        
-            //properties derived from taxon
-            insertAssets.propStr += `, genus_name`;
-            insertAssets.valStr += `, :genus_name`;
-            insertAssets.values.genus_name = taxon.genus; 
-            if (taxon.subgenus) {
-                insertAssets.propStr += ', subgenus_name';
-                insertAssets.valStr += ', :subgenus_name';
-                insertAssets.values.subgenus_name = taxon.subgenus;
-            }
-            if (taxon.species) {
-                insertAssets.propStr += ', species_name';
-                insertAssets.valStr += ', :species_name';
-                insertAssets.values.species_name = taxon.species; 
-            }
+            const insertAssets = prepareInsertAssets(occurrence, []);
+            insertAssets.propStr += `, enterer, enterer_no, authorizer_no`;
+            insertAssets.valStr += `, :enterer, :enterer_no, :authorizer_no`;
+            insertAssets.values.enterer = user.userName; //TODO: consider stripping to first initial
+            insertAssets.values.enterer_no = user.userID;
+            insertAssets.values.authorizer_no = user.authorizerID;
 
             const insertSQL = `insert into reidentifications (${insertAssets.propStr}) values (${insertAssets.valStr}) returning reid_no`
             logger.trace(insertSQL)
@@ -241,6 +267,8 @@ export const createReidentification = async (pool, reidentification, user, allow
             logger.trace(res[0].reid_no)
 
             reidentification.reid_no = res[0].reid_no;
+
+            await updateOccurrence(conn, reidentification.occurrence_no, reidentification.reid_no)
                         
             await conn.commit();
             return reidentification;
@@ -260,28 +288,40 @@ export const createReidentification = async (pool, reidentification, user, allow
     }
 }
 
-export const updateReidentification = async (pool, patch, user, allowDuplicate, mergedReidentification) => {
+export const updateReidentification = async (pool, patch, user, allowDuplicate, bypassTaxon, mergedReidentification) => {
     logger.info("updateReidentification");
     logger.trace(user)
     logger.trace(patch);
     logger.trace(mergedReidentification)
-
-    const updateAssets = prepareUpdateAssets(patch, []);
-    
-    updateAssets.propStr += `${updateAssets.propStr === '' ? '': ', '} modifier = :modifier, modifier_no = :modifier_no`
-    updateAssets.values.modifier = user.userName; //TODO: consider stripping to first initial
-    updateAssets.values.modifier_no = user.userID;
-    updateAssets.values.reid_no = mergedReidentification.reid_no;
 
     let conn;
     try {
         conn = await pool.getConnection();
         await conn.beginTransaction();
 
+        if (!bypassTaxon) {
+            const taxon = await fetchClosestTaxon(conn, mergedReidentification);
+            if (taxon) {
+                patch.taxon_no = taxon.id
+                mergedReidentification.taxon_no = taxon.id
+            }
+        }
+
         if (
             allowDuplicate || 
             ! await isDuplicate(conn, mergedReidentification)
         ) {
+
+            patch.species_name = `${patch.species_name}${patch.subspecies_name ? ` ${patch.subspecies_name}` : ''}`;
+            delete patch.subspecies_name;
+
+            const updateAssets = prepareUpdateAssets(patch, []);
+    
+            updateAssets.propStr += `${updateAssets.propStr === '' ? '': ', '} modifier = :modifier, modifier_no = :modifier_no`
+            updateAssets.values.modifier = user.userName; //TODO: consider stripping to first initial
+            updateAssets.values.modifier_no = user.userID;
+            updateAssets.values.reid_no = mergedReidentification.reid_no;
+        
 
             //verify fks
             if (patch.reference_no || patch.reference_no === 0) {
@@ -350,6 +390,8 @@ export const updateReidentification = async (pool, patch, user, allowDuplicate, 
                 sql: updateSQL
             }, updateAssets.values);
 
+            await updateOccurrence(conn, mergedReidentification.occurrence_no, mergedReidentification.reid_no)
+                        
             await conn.commit();
             return res;
         } else {

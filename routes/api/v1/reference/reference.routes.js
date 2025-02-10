@@ -77,6 +77,12 @@ export default async function (fastify, opts) {
 			const refs = await getReference(fastify.mariadb, req.params.id);
 			fastify.log.trace(refs[0])
 
+			if (!refs || refs.length === 0) {
+				const error = new Error(`Unrecognized reference: ${req.params.id}`);
+				error.statusCode = 400
+				throw error
+			}
+
 			//strip null properties
 			const ref = {reference: Object.fromEntries(Object.entries(refs[0]).filter(([_, v]) => v != null))};
 			fastify.log.trace("after stripping nulls")

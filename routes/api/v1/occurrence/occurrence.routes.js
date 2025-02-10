@@ -97,6 +97,13 @@ export default async function (fastify, opts) {
 
 			//fetch existing collection from db
 			const occurrences = await getOccurrence(fastify.mariadb, req.params.id);
+
+			if (!occurrences || occurrences.length === 0) {
+				const error = new Error(`Unrecognized occurrence: ${req.params.id}`);
+				error.statusCode = 400
+				throw error
+			}
+
 			fastify.log.trace(occurrences[0])
 
 			//strip null properties

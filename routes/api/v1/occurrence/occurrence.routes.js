@@ -148,12 +148,13 @@ export default async function (fastify, opts) {
 				return {statusCode: 400, msg: validate.errors}
 			}
 
-			const tmpNo = mergedOccurrence.occurrence.taxon_no
+			const tmpTaxonNo = mergedOccurrence.occurrence.taxon_no
+			const tmpReidNo = mergedOccurrence.occurrence.reid_no
 
-			//Need to re-add occurrence_no after validation because fastify sets removeAdditional to true, which removes properties that aren't in validation schema. But model needs it.
-			//TODO: Also re-add taxon_name and taxon_no?
+			//Need to re-add occurrence_no, taxon_no, and reid_no after validation because fastify sets removeAdditional to true, which removes properties that aren't in validation schema. But model needs them.
 			mergedOccurrence.occurrence.occurrence_no = parseInt(req.params.id);
-			mergedOccurrence.occurrence.taxon_no = tmpNo;
+			mergedOccurrence.occurrence.taxon_no = tmpTaxonNo;
+			mergedOccurrence.occurrence.reid_no = tmpReidNo;
 			fastify.log.info("mergedOccurrence after validation(occurrence_no added")
 			fastify.log.info(mergedOccurrence)
 

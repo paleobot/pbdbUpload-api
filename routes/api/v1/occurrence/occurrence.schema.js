@@ -3,12 +3,9 @@ Validation schemas in JSON Schema format. Note that fastify uses ajv (https://aj
 */
 
 const occurrenceProperties = {
-	reid_no: {type: "integer"},
 	collection_no: {type: "integer"},	
-	//taxon_no: {type: "integer"},	
 	taxon_name: {type: "string"},
 	genus_reso: {
-		//description: "Required if taxon_no is present and is for a genus",
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. gen.','sensu lato','?','"','informal'],
 	},
@@ -17,7 +14,6 @@ const occurrenceProperties = {
 		maxLength: 255
 	},
 	subgenus_reso: {
-		//description: "Required if taxon_no is present and is for a subgenus",
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. subgen.','sensu lato','?','"','informal'],
 	},
@@ -26,7 +22,6 @@ const occurrenceProperties = {
 		maxLength: 255
 	},
 	species_reso: {
-		//description: "Required if taxon_no is present and is for a species",
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. sp.','sensu lato','?','"','informal'],
 	},
@@ -35,7 +30,6 @@ const occurrenceProperties = {
 		maxLength: 255
 	},
 	subspecies_reso: {
-		//description: "Required if taxon_no is present and is for a subspecies",
 		type: "string",
 		enum: ['','aff.','cf.','ex gr.','n. sp.','sensu lato','?','"','informal'],
 	},
@@ -93,10 +87,12 @@ export const editSchema = {
 				properties: occurrenceProperties,
 			},
 			allowDuplicate: {
-				type: "boolean"
+				type: "boolean",
+				default: false
 			},
 			bypassTaxon: {
-				type: "boolean"
+				type: "boolean",
+				default: false
 			}
 		},
 		examples: [{
@@ -148,10 +144,12 @@ export const createSchema = {
 				
 			},
 			allowDuplicate: {
-				type: "boolean"
+				type: "boolean",
+				default: false
 			},
 			bypassTaxon: {
-				type: "boolean"
+				type: "boolean",
+				default: false
 			}
       	},
 		examples: [{

@@ -107,7 +107,9 @@ const updatePerson = async (conn, user) => {
 }
 
 const updateOccurrence = async (conn, occurrenceID, reID) => {
-    const rs = await conn.query("update occurrence set reid_no = :reID where occurrence_no = :occurrenceID", {occurrenceID: occurrenceID, reID: reID});
+    //TODO: I dunno why this doesn't work
+    //const rs = await conn.query("update occurrences set reid_no = :reid_no where occurrence_no = :occurrence_no", {occurrence_no: occurrenceID, reid_no: reID});
+    const rs = await conn.query(`update occurrences set reid_no = ${reID} where occurrence_no = ${occurrenceID}`);
     if (rs.affectedRows !== 1) throw new Error("Could not update occurrence table");
 }
 
@@ -189,7 +191,7 @@ export const createReidentification = async (pool, reidentification, user, allow
         reidentification.subspecies_name = taxon.subspecies;
         reidentification.genus_reso = taxon.genusReso;
         reidentification.subgenus_reso = taxon.subgenusReso;
-        occurreidentificationrence.species_reso = taxon.speciesReso;
+        reidentification.species_reso = taxon.speciesReso;
         //reidentification.subspecies_reso = taxon.subspeciesReso;
         delete reidentification.taxon_name;
     }
@@ -245,7 +247,7 @@ export const createReidentification = async (pool, reidentification, user, allow
             await verifyCollection(conn, reidentification.collection_no);
             await verifyOccurrence(conn, reidentification.occurrence_no);
             
-            const insertAssets = prepareInsertAssets(occurrence, []);
+            const insertAssets = prepareInsertAssets(reidentification, []);
             insertAssets.propStr += `, enterer, enterer_no, authorizer_no`;
             insertAssets.valStr += `, :enterer, :enterer_no, :authorizer_no`;
             insertAssets.values.enterer = user.userName; //TODO: consider stripping to first initial

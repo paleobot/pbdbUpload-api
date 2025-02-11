@@ -271,7 +271,8 @@ export const editSchema = {
 				unevaluatedProperties: false, //new with Draft 2019-09
 			},
 			allowDuplicate: {
-				type: "boolean"
+				type: "boolean",
+				default: false
 			}
 		},
 		examples: [{
@@ -327,7 +328,8 @@ export const createSchema = {
 				],
 			},
 			allowDuplicate: {
-				type: "boolean"
+				type: "boolean",
+				default: false
 			}
       	},
 		examples: [{

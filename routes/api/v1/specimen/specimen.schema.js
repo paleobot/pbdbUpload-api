@@ -69,7 +69,8 @@ export const editSchema = {
 				properties: specimenProperties,
 			},
 			allowDuplicate: {
-				type: "boolean"
+				type: "boolean",
+				default: false
 			}
 		},
 		examples: [{
@@ -106,7 +107,8 @@ export const createSchema = {
                 ],
 			},
 			allowDuplicate: {
-				type: "boolean"
+				type: "boolean",
+				default: false
 			}
       	},
 		examples: [{

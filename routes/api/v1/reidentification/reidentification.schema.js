@@ -81,7 +81,8 @@ export const editSchema = {
 				properties: reidentificationProperties,
 			},
 			allowDuplicate: {
-				type: "boolean"
+				type: "boolean",
+				default: false
 			}
 		},
 		examples: [{
@@ -134,7 +135,8 @@ export const createSchema = {
 				
 			},
 			allowDuplicate: {
-				type: "boolean"
+				type: "boolean",
+				default: false
 			}
       	},
 		examples: [{

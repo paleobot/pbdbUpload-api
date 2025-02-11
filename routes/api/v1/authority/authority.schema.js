@@ -156,7 +156,12 @@ export const editSchema = {
 				properties: authorityProperties,
 			},
 			allowDuplicate: {
-				type: "boolean"
+				type: "boolean",
+				default: false
+			},
+			bypassOccurrences: {
+				type: "boolean",
+				default: false
 			}
 		},
 		examples: [{
@@ -305,10 +310,12 @@ export const createSchema = {
 				}],
 			},
 			allowDuplicate: {
-				type: "boolean"
+				type: "boolean",
+				default: false
 			},
 			bypassOccurrences: {
-				type: "boolean"
+				type: "boolean",
+				default: false
 			}
       	},
 		examples: [{

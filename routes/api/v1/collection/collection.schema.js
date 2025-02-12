@@ -62,7 +62,7 @@ const collectionProperties = {
 	},
 	release_date: {
 		type: "string",
-		format: "date-time"
+		format: "date"
 	},
 	country: {
 		type: "string",

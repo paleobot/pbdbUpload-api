@@ -20,6 +20,7 @@ export const options = {}
 
 export const SchemaCompiler = ({ schema }) => {
 	const ajv = new Ajv2019()
+	//const ajv = new Ajv2019({allErrors: true})
 	addFormats(ajv)
 	const validate = ajv.compile(schema)
 	//const validate = new Ajv2019().compile(schema)
@@ -301,8 +302,9 @@ export default async function (fastify, opts) {
   	// define your routes in one of these
   	fastify.register(AutoLoad, {
     	dir: path.join(__dirname, 'routes'),
-    	options: Object.assign({}, opts),
-		ignorePattern: /^.*(model|schema)\.js$/
+    	//options: Object.assign({}, opts),
+		options: { prefix: '/pbdbupload' },
+		ignorePattern: /^.*(model|schema)\.js$/,
   	})
 	
 }

@@ -259,6 +259,7 @@ export const getSchema = {
 
 export const editSchema = {
 	tags:["Reference"],
+	hide: true,
     body: {
 		type: 'object',
 		properties: {
@@ -302,6 +303,7 @@ export const editSchema = {
 
 export const createSchema = {
 	tags:["Reference"],
+	hide: true,
     body: {
 		type: 'object',
 		properties: {

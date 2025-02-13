@@ -2,7 +2,7 @@
 
 # Paleobiology Database Upload API Implementation
 
-This repository is intended to act as the core repository for the Paleobiology Database "Upload" API version 1.0 and greater.  There are two main branches, `master` and `dev`.  Master is intended as the canonical production branch, while `pbdb-dev` includes minor configuration changes from Master to allow faster deployment on the Paleobiology Database servers.  The *development* (closed beta) version of the API can be found on the University of Arizona [test server](https://testpaleobiodb.colo-prod-aws.arizona.edu/pbdbupload/api/v1/help). The *staging* version (open beta) of the API can be found on the University of Wisconsin's [development server](https://dev.paleobiodb.org/pbdbupload/api/v1/help). There is no *production* version of the API at this time.
+This repository is intended to act as the core repository for the Paleobiology Database "Upload" API version 1.0 and greater. The *development* (closed beta) version of the API can be found on the University of Arizona [test server](https://testpaleobiodb.colo-prod-aws.arizona.edu/pbdbupload/api/v1/help). The *staging* version (open beta) of the API can be found on the University of Wisconsin's [development server](https://dev.paleobiodb.org/pbdbupload/api/v1/help). There is no *production* version of the API at this time.
 
 ## Contribution
 

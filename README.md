@@ -16,4 +16,6 @@ To start the server locally you must first download and install the dockerized v
 
 Once you have installed a local copy of the other PBDB elements, you can clone this repository. Once the repository is cloned you must use the `npm` package installer to download the required packages.  The required packages are listed in `package.json`.  You can use the command `npm install` to install the packages locally.
 
-Once the directory is set up and the packages have been installed, use `npm start` to start the server locally.  This will create a local server, serving data to `localhost:3000`.
+Once the directory is set up and the packages have been installed, you must config for your environment. There is a file called env_template in the root dir that contains all the parameters you need to set. Copy that file to a file called .env and set them there.
+
+Once configured, use `npm start` to start the server locally.  This will create a local server, serving data from the server:port specified in the .env file.

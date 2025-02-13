@@ -38,7 +38,8 @@ export default async function (fastify, opts) {
 
 	//TODO: This is a hack to get around the fact that fastify-cli does not currently allow setting trustProxy. Without this setting, it is impossible to get the original host when building urls. 
 	fastify.decorateRequest("hostHack", function () {
-		return this.host.includes("host.docker.internal") ? "localhost" : this.host
+		return `${process.env.FASTIFY_HOST}${process.env.FASTIFY_PORT ? `:${process.env.FASTIFY_PORT}` : ''}`
+		//return this.host.includes("host.docker.internal") ? "localhost" : this.host
 		//return this.host.includes("host.docker.internal") ? "testpaleobiodb.colo-prod-aws.arizona.edu" : this.host
 	})
 
@@ -205,12 +206,10 @@ export default async function (fastify, opts) {
 
 	fastify.register(mariadb, {
 		promise: true,
-		//TODO:  get host from .env and make it dependent on run variable.
-		//Note: This works if host.docker.internal is added to docker run in vscode settings
-		host: 'localhost',
-		//host: 'host.docker.internal',
-		user: 'pbdbuser',
-		password: 'pbdbpwd',
+		//NOTE: for local and dev testing with docker, set HOST to "host.docker.internal" in .env and make sure host.docker.internal is added to docker run in vscode settings
+		host: process.env.MARIADB_HOST,
+		user: process.env.MARIADB_USER,
+		password: process.env.MARIADB_PW,
 		database: 'pbdb',
 		connectionLimit: 5,
 	})

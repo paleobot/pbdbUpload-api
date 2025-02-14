@@ -2,7 +2,7 @@
 
 # Paleobiology Database Upload API Implementation
 
-This repository is intended to act as the core repository for the Paleobiology Database "Upload" API version 1.0 and greater.  There are two main branches, `master` and `dev`.  Master is intended as the canonical production branch, while `pbdb-dev` includes minor configuration changes from Master to allow faster deployment on the Paleobiology Database servers.  The *development* (closed beta) version of the API can be found on the University of Arizona [test server](https://testpaleobiodb.colo-prod-aws.arizona.edu/pbdbupload/api/v1/help). The *staging* version (open beta) of the API can be found on the University of Wisconsin's [development server](https://dev.paleobiodb.org/pbdbupload/api/v1/help). There is no *production* version of the API at this time.
+This repository is intended to act as the core repository for the Paleobiology Database "Upload" API version 1.0 and greater. The *development* (closed beta) version of the API can be found on the University of Arizona [test server](https://testpaleobiodb.colo-prod-aws.arizona.edu/pbdbupload/api/v1/help). The *staging* version (open beta) of the API can be found on the University of Wisconsin's [development server](https://dev.paleobiodb.org/pbdbupload/api/v1/help). There is no *production* version of the API at this time.
 
 ## Contribution
 
@@ -16,4 +16,6 @@ To start the server locally you must first download and install the dockerized v
 
 Once you have installed a local copy of the other PBDB elements, you can clone this repository. Once the repository is cloned you must use the `npm` package installer to download the required packages.  The required packages are listed in `package.json`.  You can use the command `npm install` to install the packages locally.
 
-Once the directory is set up and the packages have been installed, use `npm start` to start the server locally.  This will create a local server, serving data to `localhost:3000`.
+Once the directory is set up and the packages have been installed, you must config for your environment. There is a file called env_template in the root dir that contains all the parameters you need to set. Copy that file to a file called .env and set them there.
+
+Once configured, use `npm start` to start the server locally.  This will create a local server, serving data from the server:port specified in the .env file.

@@ -38,7 +38,7 @@ export default async function (fastify, opts) {
 
 	//TODO: This is a hack to get around the fact that fastify-cli does not currently allow setting trustProxy. Without this setting, it is impossible to get the original host when building urls. 
 	fastify.decorateRequest("hostHack", function () {
-		return `${process.env.FASTIFY_HOST}${process.env.FASTIFY_PORT ? `:${process.env.FASTIFY_PORT}` : ''}`
+		return `${process.env.FASTIFY_HOST}${(process.env.PORT_DISPLAY === "true" && process.env.FASTIFY_PORT) ? `:${process.env.FASTIFY_PORT}` : ''}`
 		//return this.host.includes("host.docker.internal") ? "localhost" : this.host
 		//return this.host.includes("host.docker.internal") ? "testpaleobiodb.colo-prod-aws.arizona.edu" : this.host
 	})

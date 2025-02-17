@@ -165,13 +165,6 @@ export const createReidentification = async (pool, reidentification, user, allow
     logger.trace(reidentification);
     logger.trace(user)
 
-    const insertAssets = prepareInsertAssets(reidentification, []);
-	insertAssets.propStr += `, enterer, enterer_no, authorizer_no`;
-	insertAssets.valStr += `, :enterer, :enterer_no, :authorizer_no`;
-    insertAssets.values.enterer = user.userName; //TODO: consider stripping to first initial
-    insertAssets.values.enterer_no = user.userID;
-    insertAssets.values.authorizer_no = user.authorizerID;
-   
     if (reidentification.taxon_name) {
         const taxon = parseTaxon(reidentification.taxon_name, true);
 

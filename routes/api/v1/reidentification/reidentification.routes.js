@@ -25,7 +25,7 @@ export default async function (fastify, opts) {
 			const offset = request.query.offset ? parseInt(request.query.offset) : 0;
 			fastify.log.trace(request.query)
 
-			const occurrences = await getReidentifications(fastify.mariadb, limit, offset, fastify);
+			const reidentifications = await getReidentifications(fastify.mariadb, limit, offset, fastify);
 			fastify.log.trace(reidentifications)
 			return {
 				data: {

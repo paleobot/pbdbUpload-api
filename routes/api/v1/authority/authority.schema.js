@@ -83,7 +83,10 @@ const authorityProperties = {
 	author1init: {
 		type: "string",
 		//pattern: "^(?:\\p{L}\\.? *){1,2}", //TODO: Pattern needs work. See Validaiton.pm, line 143
-		pattern: "^(?:[a-z]|[A-Z]\\.? *){1,2}", //TODO: Pattern needs work. See Validaiton.pm, line 143		maxLength: 10
+		//pattern: "^(?:[a-z]|[A-Z]\\.? *){1,2}", //TODO: Pattern needs work. See Validaiton.pm, line 143		maxLength: 10
+		//pattern: "^\\p{L}\\.? ?\\p{L}?\\.?$", //TODO: Pattern needs work. See Validaiton.pm, line 143		maxLength: 10
+		pattern: "^[a-z]|[A-Z]\\.? ?[a-z]|[A-Z]?\\.?$", //TODO: Pattern needs work. See Validaiton.pm, line 143, also: not using p{L} here so help page works		
+		maxLength: 10
 	},	
 	author1last: {
 		type: "string", //TODO: see Validaiton.pm, line 124

@@ -2,6 +2,8 @@
 Validation schemas in JSON Schema format. Note that fastify uses ajv (https://ajv.js.org/) for validation, which expects the schemas to be javascript objects rather than raw JSON. Consequently, property names (keys) do not require double quotes.
 */
 
+const currentYear = new Date(Date.now()).getFullYear();
+
 const opinionProperties = {
 	reference_no: {type: "integer"},
 	child_no: {type: "integer"},	

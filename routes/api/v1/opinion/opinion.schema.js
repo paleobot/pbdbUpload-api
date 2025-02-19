@@ -16,7 +16,8 @@ const opinionProperties = {
 	},	
 	basis: {
 		type: "string",
-		enum: ['','stated with evidence','stated without evidence','implied','second hand']
+		enum: ['','stated with evidence','stated without evidence','implied','second hand'],
+		default: 'stated with evidence'
 	},	
 	phylogenetic_status: {
 		type: "string",

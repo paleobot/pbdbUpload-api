@@ -83,7 +83,7 @@ export const getCollection = async (pool, id) => {
       delete rows.meta
       logger.trace(rows)
 
-      if (!rows || !rows.length > 0 || !rows.collection_no) {
+      if (!rows || !rows.length > 0 || !rows[0].collection_no) {
         return null
       }
       

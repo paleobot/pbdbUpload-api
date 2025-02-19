@@ -99,7 +99,7 @@ export const getAuthority = async (pool, id) => {
     }
 }
 
-const getOriginalCombination = async(conn, taxon_no) => {
+export const getOriginalCombination = async(conn, taxon_no) => {
     logger.trace("getOriginalCombination")
     logger.trace("taxon_no = " + taxon_no)
 

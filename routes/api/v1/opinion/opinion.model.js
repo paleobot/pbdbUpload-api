@@ -115,6 +115,98 @@ const fetchTaxon = async (conn, taxonID) => {
     }
 }
 
+
+//This is a translation of the perl routine getOpinionsToMigrate in Opinion.pm. There is login in that routine that is inconsistent. There is also logic that I do not fully understand. I've tried to fix what it obvious to me and left the rest intact. 
+//Comment from original routine: Gets a list of opinions that will be moved from a spelling to an original name.  Made into its own function so we can prompt the user before the move actually happens to make sure they're not making a mistake. The exclude_opinion_no is passed so we exclude the current opinion in the migration, which will only happen on an edit
+const getOpinionsToMigrate = async (conn, child_no, child_spelling_no, exclude_opinion_no) => {
+    const sql = `
+        SELECT 
+            * 
+        FROM 
+            opinions 
+        WHERE 
+            (
+                (child_no = :child_no AND 
+                    (parent_no = :child_spelling_no OR 
+                        parent_spelling_no = :child_spelling_no
+                    )
+                ) 
+            ) AND 
+            status != 'misspelling of' ${exclude_opinion_no ? `AND
+            opinion_no != :excluded_opinion_no` : ''}
+    `;
+
+    const results = await conn.query(sql, {
+        child_no: child_no,
+        child_spelling_no: child_spelling_no,
+        exclude_opinion_no: exclude_opinion_no
+    });
+    if ( results )	{
+        return {
+            opinions: [],
+            parents: [],
+            error: results[0].status
+        };
+    }
+    //It's not clear to me what just happened. We abandon results here.
+ 
+    const orig_no = getOriginalCombination(conn ,child_spelling_no);
+    sql = `
+        SELECT 
+            * 
+        FROM 
+            opinions 
+        WHERE 
+            child_no = :orig_no ${exclude_opinion_no ? `AND
+            opinion_no != :excluded_opinion_no` : ''}
+    `;
+    results = await conn.query(sql, {
+        orig_no: orig_no,
+        exclude_opinion_no: exclude_opinion_no
+    });
+  
+    const parents = [];
+
+    //Comment from original routine: there is a potential bizarre case where child_spelling_no has been used as a parent_no, but it completely unclassified itself, so we need to add it to the list of parents to be moved JA 12.6.07
+    if ( !results && child_no != orig_no )	{
+        sql = "SELECT count(*) c FROM opinions WHERE parent_no = :orig_no";
+        const count = await conn.query(sql, {
+            orig_no: orig_no,
+        })[0].c;
+        if ( count > 0 )	{
+            parents.push(orig_no);
+        }
+    }
+
+    const opinions = [];
+    for (row of results) {
+        if (row.child_no != child_no) {
+            opinions.push(row);
+            if ('misspelling of' === row.status) {
+                //NOTE: This is the original test. I find this regex formulation odd. parent_spelling_no is an int in the db. I think they are just checking to see if it has a value. Maybe perl returns it as a string?
+                //if (/^\d+$/.test(row.parent_spelling_no)) {
+                if (row.parent_spelling_no) {
+                    parents.push(row.parent_spelling_no);
+                }
+            }
+            //ditto
+            if (row.child_spelling_no) {
+                parents.push(row.child_spelling_no);
+            }
+            //ditto
+            if (row.child_no) {
+                parents.push(row.child_no);
+            }
+        }
+    }
+
+    return {
+        opinions: opinions,
+        parents: parents
+    };
+}
+
+
 const verifyReference = async (conn, referenceID, pubyr) => {
     //logger.trace("verifyReference")
     const testResult = await conn.query("select reference_no, pubyr from refs where reference_no = ?", [referenceID]);

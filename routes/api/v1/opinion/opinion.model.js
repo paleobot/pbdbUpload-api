@@ -105,6 +105,7 @@ const fetchTaxon = async (conn, taxonID) => {
 
     return {
         rank: taxonResult[0].taxon_rank,
+        name: taxonResult[0].taxon_name,
         genus: taxonParsed[0][1] || null,
         subgenus: taxonParsed[0][2] || null,
         species: taxonParsed[0][3] ? 
@@ -119,6 +120,31 @@ const fetchTaxon = async (conn, taxonID) => {
 //This is a translation of the perl routine getOpinionsToMigrate in Opinion.pm. There is login in that routine that is inconsistent. There is also logic that I do not fully understand. I've tried to fix what it obvious to me and left the rest intact. 
 //Comment from original routine: Gets a list of opinions that will be moved from a spelling to an original name.  Made into its own function so we can prompt the user before the move actually happens to make sure they're not making a mistake. The exclude_opinion_no is passed so we exclude the current opinion in the migration, which will only happen on an edit
 const getOpinionsToMigrate = async (conn, child_no, child_spelling_no, exclude_opinion_no) => {
+
+    /*
+    NOTE: The original version of this select had duplicate logic in the WHERE clause:
+        SELECT 
+            * 
+        FROM 
+            opinions 
+        WHERE 
+            (
+                (child_no = :child_no AND 
+                    (parent_no = :child_spelling_no OR 
+                        parent_spelling_no = :child_spelling_no
+                    ) 
+                ) OR
+                (child_no = :child_no AND 
+                    (parent_no = :child_spelling_no OR 
+                        parent_spelling_no = :child_spelling_no
+                    ) 
+                ) 
+            ) AND 
+            status != 'misspelling of' ${exclude_opinion_no ? `AND
+            opinion_no != :excluded_opinion_no` : ''}
+    My guess is that this is a bug and they intended to query on something else.
+    For now, I've just deleted the redundancy.
+    */
     const sql = `
         SELECT 
             * 
@@ -205,6 +231,59 @@ const getOpinionsToMigrate = async (conn, child_no, child_spelling_no, exclude_o
         parents: parents
     };
 }
+
+//NOTE: This routine is a translation of the same routine in Opinion.pm
+//Original comment:
+/*
+# row is an opinion database row and must contain the following fields:
+#   child_no,status,child_spelling_no,parent_spelling_no,opinion_no
+# JA: there's a long-standing bug in here somewhere that causes the spelling
+#  spelling reason to get messed up when original names are changed but I
+#  have no time right now to fix it
+*/
+const resetOriginalNo = async (conn, newOriginalNumber, opinion) => {
+   if (!newOriginalNumber) return
+    
+    const childTaxon = await fetchTaxon(conn, newOriginalNumber);
+
+    let spellingTaxon;
+    if ('misspelling of' === opinion.status) {
+        spellingTaxon = await fetchTaxon(conn, opinion.parent_spelling_no);
+    } else {
+        spellingTaxon = await fetchTaxon(conn, opinion.child_spelling_no);
+    }
+
+    const isMisspelling = 
+        "misspelling" === opinion.spelling_reason || 
+        await conn.query({ 
+            namedPlaceholders: true, 
+            sql: "SELECT count(*) cnt FROM opinions WHERE child_spelling_no=:child_spelling_no AND status='misspelling of'"
+        }, {child_spelling_no: opinion.child_spelling_no}).cnt > 0;
+
+    const newSpellingReason = 
+        isMisspelling ?
+            'misspelling' :
+            guessSpellingReason(childTaxon, spellingTaxon) //TODO: define this
+
+    const sql = `
+        UPDATE 
+            opinions 
+        SET 
+            modified=modified,
+            spelling_reason=:spelling_reason,
+            child_no=:child_no  
+        WHERE 
+            opinion_no=:opinion_no`
+
+        await conn.query({ 
+            namedPlaceholders: true, 
+            sql: sql
+        }, {
+            spelling_reason: newSpellingReason,
+            child_no: newOriginalNumber,
+            opinion_no: opinion.opinion_no
+        });
+    }
 
 
 const verifyReference = async (conn, referenceID, pubyr) => {
@@ -300,6 +379,28 @@ export const createOpinion = async (pool, opinion, user, allowDuplicate) => {
         logger.trace("childTaxon = ")
         logger.trace(childTaxon)
 
+        let childSpellingTaxon;
+        if (opinion.child_spelling_no) {
+            childSpellingTaxon = await fetchTaxon(conn, opinion.child_spelling_no);
+            logger.trace("childSpellingTaxon = ")
+            logger.trace(childSpellingTaxon)
+        }
+
+        //Note: I have no idea if I'm doing this parent stuff right
+        let parentTaxon;
+        if (opinion.parent_no) {
+            parentTaxon = await fetchTaxon(conn, opinion.parent_no);
+            logger.trace("parentTaxon = ")
+            logger.trace(parentTaxon)
+        }
+
+        let parentSpellingTaxon;
+        if (opinion.parent_spelling_no) {
+            parentSpellingTaxon = await fetchTaxon(conn, opinion.parent_spelling_no);
+            logger.trace("parentSpellingTaxon = ")
+            logger.trace(parentSpellingTaxon)
+        }
+
         if (
             //allowDuplicate || 
             ! await isDuplicate(conn, opinion)
@@ -308,10 +409,109 @@ export const createOpinion = async (pool, opinion, user, allowDuplicate) => {
             //verify reference
             await verifyReference(conn, opinion.reference_no, opinion.pubyr);
             
+            //Migrations (should probably be in seperate routine)
+            let migrations1 = {}, migrations2 = {};
+            if ("misspelling of" === opinion.status) {
+                if (opinion.parent_spelling_no) {
+                    migrations2 = await getOpinionsToMigrate(conn, opinion.parent_no, opinion.child_no, opinion.opinion_no)
+                    if (migrations2.error)	{
+                        const error = new Error(`${childSpellingTaxon.name} can't be a misspelling of ${parentTaxon.name} because there is already a '$error' opinion linking them, so they must be biologically distinct`);
+                        error.statusCode = 400
+                        throw error				
+                    } 
+                }
+            }
+            if (opinion.child_spelling_no) {
+                migrations1 = getOpinionsToMigrate(conn, opinion.child_no, $opinion.child_spelling_no, opinion.opinion_no);
+                if (migrations1.error && childSpellingTaxon && childTaxon && childSpellingTaxon.name != childTaxon.name )	{
+                    const error = new Error(`${childSpellingTaxon.name} can't be an alternate spelling of ${childTaxon.name} because there is already a '${migrations1.status}' opinion linking them, so they must be biologically distinct"`);
+                    error.statusCode = 400
+                    throw error				
+                } 
+            }
+
+            if (!allowMigrations && (migrations1 || migrations2)) {
+                let msg = "Opinions to migrate:"
+                migrations1.opinions.reduce((acc, opinion) => {
+                    if (migrations1.opinions || migrations2.opinions) {
+                        msg = `${msg}
+                        ${childSpellingTaxon.name} already exists with opinions classifying it`;
+                    } else if (migrations1.parents || migrations2.parents) {
+                        msg = `${msg}
+                        ${childSpellingTaxon.name} already exists`;
+                    }
+                    if ("misspelling of" !== opinion.status) {
+                        /*
+                        msg = `${msg}
+                        If '${childTaxon.name}' is actually a misspelling of '${childSpellingTaxon.name}', please enter 'Invalid, this taxon is a misspelling of $childSpellingName' in the 'How was it classified' section, and enter '$childName' in the 'How was it spelled' section.<br>";
+                        */
+                       //I actually have no idea what should happen here.
+                    }
+                    if (migrations1.opinions) {
+                        msg = `${msg}
+                        If '${childSpellingTaxon.name}' is actually a homonym (same spelling, totally different taxon), you must create a new '${childSpellingTaxon.name}'`;
+                    }
+                    return msg
+                }, msg)
+
+                msg = `${msg}
+                If you wish to proceed, resubmit with allowMigrations set to true.
+                
+                Be aware that, if you do this, this name will be combined permanently with the existing one. This means: 
+                    --'${childTaxon.name}' will be considered the 'original' name. If another spelling is actually the original one, please enter opinions based on that other name. 
+                    -- authority information will be made identical and linked.  Changes to one name's authority record will be copied over automatically to the other's.
+                    -- these names will be considered the same when editing/adding opinions, downloading, searching, etc.`
+                error.statusCode = 400
+                throw error				
+            }
+
             const insertSQL = `insert into opinions (${insertAssets.propStr}) values (${insertAssets.valStr}) returning opinion_no`
             logger.trace(insertSQL)
             logger.trace(insertAssets.values)
         
+            if (migrations1 || migrations2)	{
+
+                //TODO: Define resetOriginalNo
+                for (opinion of migrations1.opinions) {
+                    await resetOriginalNo(conn, opinion.child_no, opinion);
+                }
+
+                for (opinion of migrations2.opinions) {
+                    await resetOriginalNo(conn, opinion.child_no, opinion);
+                }
+
+       
+                //We also have to modify the parent_no so it points to the original combination of any taxa classified into any migrated opinion
+                if (migrations1.parents || migrations2.parents) {
+                    const parents = migrations1.parents ?
+                        migrations1.parents.concat(migrations2.parents) :
+                        migrations2.parents;
+                    const sql = `
+                        UPDATE 
+                            opinions 
+                        SET 
+                            modified=modified, 
+                            parent_no=:parent_no 
+                        WHERE 
+                            parent_no IN (${parents.reduce((acc, parent, idx) => idx === 0 ? parent : `${acc}, ${parent}`), ''} 
+                    `;
+                    await conn.query({ 
+                        namedPlaceholders: true, 
+                        sql: sql
+                    }, {parent_no: opinion.child_no});
+                }
+                
+                //TODO: these
+                /*
+                # Make sure opinions authority information is synchronized with the original combination
+                PBDB::Taxon::propagateAuthorityInfo($dbt,$q,$fields{'child_no'});
+        
+                # Remove any duplicates that may have been added as a result of the migration
+                $resultOpinionNumber = removeDuplicateOpinions($dbt,$s,$fields{'child_no'},$resultOpinionNumber);
+                */
+            }
+        
+
             await updatePerson(conn, user);
 
             let res = await conn.query({ 

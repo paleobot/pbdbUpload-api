@@ -155,6 +155,7 @@ export const createSchema = {
 				required: [
 					"reference_no",
 					"child_no",
+					"parent_no",
 					"status",
 					"spelling_reason",
 					"author1last",
@@ -162,7 +163,17 @@ export const createSchema = {
                 ],
 				dependentRequired: {
 					otherauthors: ["author2last"],
-				}
+				},
+				if: {
+					properties: {
+					  	status: { const: "misspelling of" }
+					}
+				  },
+				  then: {
+					required: [
+					  "child_spelling_no",
+					]
+				  },
 			},
 			allowDuplicate: {
 				type: "boolean",

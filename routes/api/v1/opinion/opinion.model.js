@@ -232,6 +232,53 @@ const getOpinionsToMigrate = async (conn, child_no, child_spelling_no, exclude_o
     };
 }
 
+
+//NOTE: This routine is a translation of the same routine in Opinion.pm
+//Original comment:
+/*
+# Figure out the spelling status - tricky cause we may need to infer it
+# Something can be a 'corrected as', but the status is 'synonym of', so that info is lost
+# This can't determine misspellings, which must be determined externally
+*/
+const guessSpellingReason = (child, spelling) => {
+    
+    let spellingReason = "";
+    
+    if (child.taxon_no === spelling.taxon_no) {
+        spellingReason ='original spelling';
+    } else {
+        //#For a recombination, the upper names will always differ. If they're the same, its a correction
+        if (/species|subgenus/.test(child.taxon_rank)) {
+            const childBits = child.taxon_name.split(' ');
+            const spellingBits= spelling.taxon_name.split(' ');
+            childBits.pop();
+            spellingBits.pop();
+            const childParent = childBits.join(' ');
+            const spellingParent = spellingBits.join(' ');
+            if (childParent === spellingParent) {
+                //# If the genus/subgenus/species names are the same, its a correction
+                spellingReason = 'correction';
+            } else {
+                //# If they differ, its a bad record or its a recombination
+                if (/subgenus/.test(child.taxon_rank)) {
+                    if (child.taxon_rank !== spelling.taxon_rank) {
+                        spellingReason = 'rank change';
+                    } else {
+                        spellingReason = 'reassignment';
+                    } 
+                } else {
+                    spellingReason = 'recombination';
+                } 
+            }
+        } else if (child.taxon_rank !== spelling.taxon_rank) {
+            spellingReason = 'rank change';
+        } else {
+            spellingReason = 'correction';
+        }
+    }
+    return spellingReason;
+}
+
 //NOTE: This routine is a translation of the same routine in Opinion.pm
 //Original comment:
 /*
@@ -275,15 +322,236 @@ const resetOriginalNo = async (conn, newOriginalNumber, opinion) => {
         WHERE 
             opinion_no=:opinion_no`
 
-        await conn.query({ 
-            namedPlaceholders: true, 
-            sql: sql
-        }, {
-            spelling_reason: newSpellingReason,
-            child_no: newOriginalNumber,
-            opinion_no: opinion.opinion_no
-        });
+    await conn.query({ 
+        namedPlaceholders: true, 
+        sql: sql
+    }, {
+        spelling_reason: newSpellingReason,
+        child_no: newOriginalNumber,
+        opinion_no: opinion.opinion_no
+    });
+}
+
+//NOTE: This routine is a translation of the same routine in Taxon.pm
+const propagateAuthorityInfo = async (conn, q, taxonNo, thisIsBest) => {
+    if (!taxon_no) return;
+
+    const origNo = await getOriginalCombination(conn,taxon_no);
+    if (!orig_no) return;
+
+    const spellingNos = await getAllSpellings(conn, origNo); //TODO: implement this
+
+    //# Note that this is the taxon_no passed in, not the original combination -- an update to
+    //# a spelling should proprate around as well
+    const me = await fetchTaxon(conn, taxon_no);
+
+    const authorityFields = ('author1init','author1last','author2init','author2last','otherauthors','pubyr');
+    const moreFields = ('pages','figures','common_name','type_specimen','museum','catalog_number','type_body_part','part_details','type_locality','extant','form_taxon','preservation');
+
+    //# Two steps: find best authority info, then propagate to all spelling variants
+    const spellings = [];
+    for (spellingNo of spellingNos) {
+        const spelling = await fetchTaxon(conn, spellingNo);
+        spellings.push(spelling);
     }
+
+    const getDataQuality = (taxon) => {
+        const quality = 0;
+        //# Taxa where the ref is authority are preferred - in the cases where there
+        //# are multiple refs that fit this criteria, go with the original combination
+        //# Else if there is anything, go with that, otherwise we're stuck with nothing
+        if (/yes/i.test(taxon.ref_is_authority)) {
+            if (taxon.taxon_no === origNo) {
+                quality = 5;
+            } else {
+                quality = 4;
+            }
+        } else if (taxon.author1last) {
+            if (taxon.taxon_no === orig_no) {
+                quality = 3;
+            } else {
+                quality = 2;
+            }
+        } else {
+            quality = 1;
+        }
+        return quality;
+    };
+   
+    //# Sort by quality in descending order
+    spellings = spellings.map(spelling => {
+        return {
+            ...spelling,
+            quality: getDataQuality(spelling)
+        }
+    }).sort((a,b) => a.quality - b.quality)
+    /*
+    @spellings = 
+        map  {$_->[1]}
+        sort {$b->[0] <=> $a->[0]}
+        map  {[$getDataQuality->($_),$_]}
+        @spellings;
+    */
+
+    let toUpdate;
+    //# Get this additional metadata from wherever we can find it, giving preference
+    //# to the taxa with better authority data
+    const seenMore = {}
+    for (spelling of spellings) {
+        for (field of moreFields) {
+            if (spelling.field !== '' && !seenMore[field]) {
+                seenMore[field] = spelling.field;
+            }
+
+        }
+    }
+
+    //# special handling for comments and discussion JA 4.9.11
+    //# these fields include subjective info that can't be ranked by "quality,"
+    //#  so glom everything together
+    //# whoops, completely screwed this up... behavior depends on whether the
+    //#  submission was of an opinion (in which case comments from merged names
+    //#  must be combined) or an authority (in which case the verbatim text
+    //#  field must be used) JA 10.5.12
+    for (field of ["comments", "discussion"]) {
+        //# ref_is_authority is a required field, so this test is trustworthy
+        if (q.ref_is_authority)	{
+            seenMore[field] = q[field];
+        } else	{
+            const textSeen = [];
+            for (spelling of spellings) {
+                if (spelling[field] ) {
+                    textSeen[spelling[field]]++;
+                }
+            }
+            //# the comments will come out in random order, but who cares
+            seenMore[field] = Object.keys(textSeen).join("\n");
+        }
+
+    }
+    /*
+    foreach my $f ( 'comments','discussion' )	{
+        # ref_is_authority is a required field, so this test is trustworthy
+        if ( $q->param('ref_is_authority') )	{
+            $seenMore{$f} = $q->param($f);
+        } else	{
+            my %textSeen;
+            foreach my $spelling (@spellings) {
+                if ( $spelling->{$f} ) {
+                    $textSeen{$spelling->{$f}}++;
+                }
+            }
+            # the comments will come out in random order, but who cares
+            $seenMore{$f} = join("\n",keys(%textSeen));
+        }
+    }
+    */
+
+    //# the user just entered these data, so if they exist, they should be used
+    //# slightly dangerous because you cannot erase data completely if they're
+    //#  wrong; you have to replace them with something
+    //# this won't mess with authority data
+    for (field of moreFields) {
+        if (me[field]) {
+            seenMore[field] = me[field]
+        }
+    }
+    if (seenMore) {
+        for (field of [...moreFields, "comments", "discussion"]) {
+            toUpdate = toUpdate ?
+                toUpdate.push(`${field} = "${seenMore[field]}"`) :
+                [].push(`${field} = "${seenMore[field]}"`)
+        }
+    }
+
+    if (toUpdate) {
+        for (spellingNo of spellingNos) {
+            const sql = `
+                UPDATE 
+                    authorities 
+                SET 
+                    modified=modified, ${toUpdate.join(", ")} 
+                WHERE 
+                    taxon_no = :taxon_no
+            `;
+            const results = await conn.query({ 
+                namedPlaceholders: true, 
+                sql: sql
+            }, {
+                taxon_no: spellingNo,
+            });
+                }
+    }
+}
+
+//NOTE: This routine is a translation of the same routine in Opinion.pm
+//Original comment:
+/*
+# Occasionally duplicate opinions will be created sort of due to user err.  User will enter
+# an opinions 'A b belongs to A' when 'A b' isn't the original combination.  They they
+# enter 'C b recombined as A b' from the same source, and the original 'A b' original gets
+# migrated when its actually the same opinion.  Find these opinions.  Don't delete them,
+# but just set all their key fields to zero and mark changes into the comments field
+*/
+const removeDuplicateOpinions = async (conn, childNo, resultOpinionNumber) => {
+    if (!child_no) return
+
+    const sql = `
+        SELECT 
+            * 
+        FROM 
+            opinions 
+        WHERE 
+            child_no=:child_no AND 
+            child_no != parent_no AND 
+            status !='misspelling of
+    `;
+
+    const results = await conn.query({ 
+        namedPlaceholders: true, 
+        sql: sql
+    }, {
+        child_no: childNo,
+    });
+
+    const dupeHash = {};
+    //# "Reverse" prevents a bug where we delete teh last entered opinion (if its a dupe)
+    //# which causes the scripts to crash later. So delete the earlier entered dupe opinion
+    for (row of results.reverse()) {
+        if (/yes/i.test(row.ref_has_opinion)) {
+            const dupeKey = `${row.reference_no} ${row.child_no}`;
+            dupeHash[dupeKey] = dupeHash[dupeKey] ? 
+                dupeHash[dupeKey].concat(row) : 
+                [].concat(row)
+        } else {
+            const dupeKey = `${row.child_no} ${row.author1last} ${row.author2last} ${row.otherauthors} ${row.pubyr}`;
+            if (row.author1last) { //#Deal with some older screwy data records just missing authority info
+                dupeHash[dupeKey] = dupeHash[dupeKey] ? 
+                    dupeHash[dupeKey].concat(row) : 
+                    [].concat(row)
+            }
+        }
+    }
+    const newNo = resultOpinionNumber;
+    for (opinions of dupeHash) {
+        if (opinions.length > 1) {
+            const originalOpinion = opinions.shift()
+            for (opinion of opinions) {
+                //NOTE: The comment above from the original routine says not to delete the record but set fields to zero. I don't see that happening in the perl code. They delete it.
+               const results = await conn.query({ 
+                    namedPlaceholders: true, 
+                    sql: "delete from opinions where opinion_no = :opinion_no"
+                }, {
+                    opinion_no: opinion.opinion_no,
+                });
+                if ( originalOpinion.opinion_no !== resultOpinionNumber )	{
+                    newNo = originalOpinion.opinion_no;
+                }
+            }
+        }
+    }
+    return newNo;
+}
 
 
 const verifyReference = async (conn, referenceID, pubyr) => {
@@ -471,7 +739,6 @@ export const createOpinion = async (pool, opinion, user, allowDuplicate) => {
         
             if (migrations1 || migrations2)	{
 
-                //TODO: Define resetOriginalNo
                 for (opinion of migrations1.opinions) {
                     await resetOriginalNo(conn, opinion.child_no, opinion);
                 }
@@ -501,15 +768,15 @@ export const createOpinion = async (pool, opinion, user, allowDuplicate) => {
                     }, {parent_no: opinion.child_no});
                 }
                 
-                //TODO: these
-                /*
-                # Make sure opinions authority information is synchronized with the original combination
-                PBDB::Taxon::propagateAuthorityInfo($dbt,$q,$fields{'child_no'});
-        
-                # Remove any duplicates that may have been added as a result of the migration
-                $resultOpinionNumber = removeDuplicateOpinions($dbt,$s,$fields{'child_no'},$resultOpinionNumber);
-                */
+                //# Make sure opinions authority information is synchronized with the original combination
+                propagateAuthorityInfo(conn, opinion, opinion.child_no);
+                
+
+                //# Remove any duplicates that may have been added as a result of the migration
+                resultOpinionNumber = removeDuplicateOpinions(conn, opinion.child_no, resultOpinionNumber);
+                
             }
+            //Don't get excited. There's still a lot more migration stuff after this
         
 
             await updatePerson(conn, user);

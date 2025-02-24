@@ -553,6 +553,79 @@ const removeDuplicateOpinions = async (conn, childNo, resultOpinionNumber) => {
     return newNo;
 }
 
+//NOTE: This routine is a translation of the same routine in Opinion.pm
+const fixMassEstimates = async (conn, taxon_no)	=> {
+	//# update body mass estimates for this name and all spellings (because spelling numbers may
+	//#  have been added) JA 7.12.10
+	//# mass estimates of synonyms are not stored, so if this name is now a synonym the senior
+	//#  synonym's data need to be updated; likewise, if this name was previously a synonym but
+	//#  is now valid the data for both names need to be updated
+	//# the easiest solution is just to work through all names ever linked to this one
+	const sql = `
+        SELECT 
+            parent_no 
+        FROM 
+            opinions 
+        WHERE 
+            child_no = :child_no AND 
+            status!='belongs to'
+    `;
+    const parents = await conn.query({ 
+        namedPlaceholders: true, 
+        sql: sql
+    }, {
+        child_no: taxon_no
+    });
+    const entangled = await getSeniorSynonym(conn, taxon_no); //TODO: define this
+
+    //# the parent is 0 in some old bad nomen dubium opinions
+	for (parent of parents)	{
+		const ss = await getSeniorSynonym(conn, parent.parent_no);
+		if ( ss > 0 )	{
+			entangled.push(ss);
+		}
+	}
+
+	for (e of entangled) {
+		const inList = getAllSynonyms(conn, e); //TODO: define this
+		const sql = `
+            UPDATE 
+                $TAXA_TREE_CACHE 
+            SET 
+                mass=NULL 
+            WHERE 
+                taxon_no IN (${in_list.join()})
+        `;
+        await conn.query({ 
+            sql: sql
+        });
+
+		const specimens = await getMeasurements(conn, { //TODO: define this
+            taxon_list: in_list,
+            get_global_specimens: 1
+        });
+		if (specimens) {
+			const p_table = await getMeasurementTable(specimens); //TODO: define this
+			const m = await getMassEstimates(conn, e, p_table); //TODO: define this
+			if (m[5] && m[6]) {
+				const mean = m[5] / m[6];
+				inList = getAllSpellings(conn, e); //TODO: define this
+				$sql = `
+                    UPDATE 
+                        $TAXA_TREE_CACHE 
+                    SET 
+                        mass=${mean} 
+                    WHERE 
+                        taxon_no IN (${in_list.join()});
+                `
+                await conn.query({ 
+                    sql: sql
+                });
+            }
+		}
+	}
+
+}
 
 const verifyReference = async (conn, referenceID, pubyr) => {
     //logger.trace("verifyReference")
@@ -776,6 +849,17 @@ export const createOpinion = async (pool, opinion, user, allowDuplicate) => {
                 resultOpinionNumber = removeDuplicateOpinions(conn, opinion.child_no, resultOpinionNumber);
                 
             }
+
+            await fixMassEstimates(conn, opinion.child_no);
+
+            /*
+            $o = PBDB::Opinion->new($dbt,$resultOpinionNumber); 
+            my ($opinion,$relation,$authority) = $o->formatAsHTML('return_array'=>1);
+            $relation =~ s/according to/of/i;
+            my $opinionHTML = $opinion.$relation.$authority;
+        
+            my $enterupdate = ($isNewEntry) ? 'entered' : 'updated';
+            */
             //Don't get excited. There's still a lot more migration stuff after this
         
 

@@ -61,6 +61,90 @@ const updateReferences = async (conn, collection_no, references) => {
     }
 }
 
+const updateCollMatrix = async (conn, collection_no) => {
+    logger.trace("updateCollMatrix")
+    logger.trace(collection_no)
+    let sql = `
+        REPLACE INTO 
+            coll_matrix (
+                collection_no, 
+                lng, 
+                lat, 
+                loc, 
+                cc,
+                protected, 
+                early_age, 
+                late_age,
+                early_int_no, 
+                late_int_no, 
+                environment,
+                reference_no, 
+                access_level
+            )
+        SELECT 
+            c.collection_no, 
+            c.lng, 
+            c.lat,
+            if(c.lng is null or c.lat is null, point(1000.0, 1000.0), point(c.lng, c.lat)), 
+            map.cc, 
+            cl.protected,
+            if(ei.early_age > li.late_age, ei.early_age, li.late_age),
+            if(ei.early_age > li.late_age, li.late_age, ei.early_age),
+            c.max_interval_no, 
+            if(c.min_interval_no > 0, c.min_interval_no, c.max_interval_no),
+            c.environment,
+            c.reference_no,
+            case c.access_level
+                when 'database members' then if(c.release_date < now(), 0, 1)
+                when 'research group' then if(c.release_date < now(), 0, 2)
+                when 'authorizer only' then if(c.release_date < now(), 0, 2)
+                else 0
+            end
+        FROM 
+            collections as c
+            LEFT JOIN coll_loc as cl using (collection_no)
+            LEFT JOIN country_map as map on map.name = c.country
+            LEFT JOIN interval_data as ei on ei.interval_no = c.max_interval_no
+            LEFT JOIN interval_data as li on li.interval_no = 
+                if (c.min_interval_no > 0, c.min_interval_no, c.max_interval_no)
+        WHERE 
+            collection_no = :collection_no
+    `
+    
+    await conn.query({
+        namedPlaceholders: true,
+        sql: sql,
+    }, {
+        collection_no: collection_no
+    });
+
+    sql = `
+        UPDATE 
+            coll_matrix as m 
+        JOIN (
+            SELECT 
+                collection_no, 
+                count(*) as n_occs
+            FROM 
+                occurrences 
+            GROUP BY 
+                collection_no
+        ) as sum USING (collection_no)
+        SET 
+            m.n_occs = sum.n_occs
+        WHERE 
+            collection_no = :collection_no
+    `
+    
+    await conn.query({
+        namedPlaceholders: true,
+        sql: sql,
+    }, {
+        collection_no: collection_no
+    });
+
+} 
+
 export const getCollection = async (pool, id) => {
     logger.info("getCollection");
 
@@ -162,6 +246,8 @@ export const createCollection = async (pool, collection, user, allowDuplicate) =
             collection.collection_no = res[0].collection_no;
             
             await updateReferences(conn, collection.collection_no, collection.references)
+
+            await updateCollMatrix(conn, collection.collection_no)
             
             await conn.commit();
             return collection;
@@ -251,6 +337,8 @@ export const updateCollection = async (pool, patch, user, allowDuplicate, merged
                 //Now recreate based on passed data
                 await updateReferences(conn, mergedCollection.collection_no, patch.references)
             }
+
+            await updateCollMatrix(conn, mergedCollection.collection_no)           
 
             await conn.commit();
             return res;

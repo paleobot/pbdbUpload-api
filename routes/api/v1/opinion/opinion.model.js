@@ -553,6 +553,8 @@ const removeDuplicateOpinions = async (conn, childNo, resultOpinionNumber) => {
     return newNo;
 }
 
+/***** 
+ * We're not going to handle this for now. Keeping it ghosted in case we change our mind
 //NOTE: This routine is a translation of the same routine in Opinion.pm
 const fixMassEstimates = async (conn, taxon_no)	=> {
 	//# update body mass estimates for this name and all spellings (because spelling numbers may
@@ -626,6 +628,7 @@ const fixMassEstimates = async (conn, taxon_no)	=> {
 	}
 
 }
+********/
 
 const verifyReference = async (conn, referenceID, pubyr) => {
     //logger.trace("verifyReference")
@@ -750,7 +753,7 @@ export const createOpinion = async (pool, opinion, user, allowDuplicate) => {
             //verify reference
             await verifyReference(conn, opinion.reference_no, opinion.pubyr);
             
-            //Migrations (should probably be in seperate routine)
+            //Gather migrations (should probably be in seperate routine)
             let migrations1 = {}, migrations2 = {};
             if ("misspelling of" === opinion.status) {
                 if (opinion.parent_spelling_no) {
@@ -810,6 +813,7 @@ export const createOpinion = async (pool, opinion, user, allowDuplicate) => {
             logger.trace(insertSQL)
             logger.trace(insertAssets.values)
         
+            //Do migrations
             if (migrations1 || migrations2)	{
 
                 for (opinion of migrations1.opinions) {
@@ -850,16 +854,131 @@ export const createOpinion = async (pool, opinion, user, allowDuplicate) => {
                 
             }
 
-            await fixMassEstimates(conn, opinion.child_no);
+            //We've decided not to do this. Keeping it ghosted for now in case we change our mind.
+            //await fixMassEstimates(conn, opinion.child_no);
 
-            /*
-            $o = PBDB::Opinion->new($dbt,$resultOpinionNumber); 
-            my ($opinion,$relation,$authority) = $o->formatAsHTML('return_array'=>1);
-            $relation =~ s/according to/of/i;
-            my $opinionHTML = $opinion.$relation.$authority;
+            //# we need to warn about the nasty case in which the author has synonymized
+            //#  genera X and Y, but we do not know the author's opinion on one or more
+            //#  species placed at some point in X
+            if ( /genus/.test(childTaxon.rank) && !/belongs to/.test(opinion.status))	{
+                //# get every opinion on every child ever assigned to this genus
+                //# we join on o2 to make sure that they have been
+                const sql = `
+                    SELECT 
+                        taxon_name,
+                        o.child_no,
+                        o.ref_has_opinion,
+                        o.reference_no reference_no,
+                        IF (o.ref_has_opinion='YES',r.author1last,o.author1last) author1last,
+                        IF (o.ref_has_opinion='YES',r.author2last,o.author2last) author2last,
+                        IF (o.ref_has_opinion='YES',r.pubyr,o.pubyr) pubyr,
+                        r.pubyr ref_pubyr 
+                    FROM 
+                        refs r,
+                        opinions o,
+                        opinions o2,
+                        authorities 
+                    WHERE 
+                        r.reference_no=o.reference_no AND 
+                        taxon_no=o.child_no AND 
+                        taxon_no=o2.child_no AND 
+                        o2.parent_spelling_no = :parent_spelling_no 
+                    ORDER BY 
+                        pubyr
+                `;
+                const childRefs = await conn.query({ 
+                    namedPlaceholders: true, 
+                    sql: sql
+                }, {parent_spelling_no: opinion.child_spelling_no});
+
+                const authorHasOpinion = [];
+                const speciesName = [];
+                for (cr of childrefs) {
+                    if ((
+                        "YES" !== opinion.ref_has_opinion && 
+                        cr.pubyr <= opinion.pubyr 
+                    ) || ( 
+                        "YES" === opinion.ref_has_opinion && 
+                        cr.pubyr <= ref_pubyr //TODO: This is weird. Orig perl: cr.pubyr <= $ref->get('pubyr'). $ref comes from either opinion.reference_no or opinion.ref_has_opinion, or something, I dunno. Line 794 in Opinion.pm. For now, I added it to the select above.
+
+                    ))	{
+                        speciesName[cr.child_no] = cr.taxon_name;
+                        if (!authorHasOpinion[cr.child_no])	{
+                            authorHasOpinion[cr.child_no] = "NO";
+                        }
+                        //# we test only on author1last, author2last, and pubyr to avoid
+                        //#  false mismatches due to typos
+                        if (
+                            cr.reference_no === resultReferenceNumber &&
+                            "YES" === cr.ref_has_opinion && 
+                            "YES" === opinion.ref_has_opinion 
+                        ) {
+                            authorHasOpinion[cr.child_no] = "YES";
+                        } else if ( 
+                            cr.author1last === opinion.author1last && 
+                            cr.author2last === opinion.author2last && 
+                            cr.pubyr === opinion.pubyr && 
+                            "YES" !== cr.ref_has_opinion && 
+                            "YES" !== opinion.ref_has_opinion
+                        )	{
+                            authorHasOpinion[cr.child_no] = "YES";
+                        }
+                    }
+                }
+
+                const children = Object.keys(authorHasOpinion).sort((a,b) => speciesName[a].localeCompare(speciesName[b]))
+                let needOpinion;
+                for (ch of children) {
+                    if ("NO" === authorHasOpinion[ch])	{
+                        if (!needOpinion) {
+                            needOpinion = speciesName[ch];
+                        } else	{
+                            if (!/ and /.test(needOpinion))	{
+                                needOpinion += " and " + speciesName[ch];
+                            } else	{
+                                needOpinion.replaceAll(" and ", ", ");
+                                needOpinion += " and " + speciesName[ch];
+                            }
+                        }
+                    }
+                }
+                //$needOpinion =~ s/^, //; //TODO: Not sure what this does, omitting for now
+
+                /*
+                //TODO: skipping for now. Probably return raw data rather than string
+                const authors;
+                if ( $opinionHTML =~ / and | et al/ )	{
+                    $authors = "These authors'";
+                } else	{
+                    $authors = "This author's";
+                }
+                if ( $needOpinion =~ / and / )	{
+                    push @warnings , $authors . " opinions on " . $needOpinion . " still may need to be entered";
+                } elsif ( $needOpinion )	{
+                    push @warnings , $authors . " opinion on " . $needOpinion . " still may need to be entered";
+                }
+                */
+            }
         
-            my $enterupdate = ($isNewEntry) ? 'entered' : 'updated';
+            /*
+            //TODO: figure out how to send this warning
+            my $end_message .= qq|
+        <div align="center">
+        <p class="medium">The opinion $opinionHTML has been $enterupdate</p>
+        |;
+        
+            if (@warnings) {
+                $end_message .= "<div class=\"warning\">";
+                if ( $#warnings > 0 )	{
+                    $end_message .= "Warnings:<br>";
+                    $end_message .= "<li>$_</li>" for (@warnings);
+                } else	{
+                    $end_message .= "Warning: " . $warnings[0];
+                }
+                $end_message .= "</div>";
+            }
             */
+
             //Don't get excited. There's still a lot more migration stuff after this
         
 

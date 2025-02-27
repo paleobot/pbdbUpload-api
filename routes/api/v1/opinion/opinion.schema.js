@@ -38,7 +38,8 @@ const opinionProperties = {
 	parent_spelling_no: {type: "integer"},
 	ref_has_opinion: {
 		type: "string",
-		maxLength: 4
+		maxLength: 4,
+		default: "YES"
 	},	
 	author1init: {
 		type: "string",
@@ -124,6 +125,10 @@ export const editSchema = {
 			allowDuplicate: {
 				type: "boolean",
 				default: false
+			},
+			allowMigrations: {
+				type: "boolean",
+				default: false
 			}
 		},
 		examples: [{
@@ -138,6 +143,20 @@ export const editSchema = {
 			properties: {
 				statusCode: {type: "integer"},
 				msg: {type: "string"},
+				warnings: {
+					type: "array",
+					items: {
+						type: "object",
+						properties: {
+							message: {
+								type: "string"
+							},
+							data: {
+								type: "object"
+							}
+						}
+					}
+				}
 			}
 		  },	
 	}
@@ -178,6 +197,10 @@ export const createSchema = {
 			allowDuplicate: {
 				type: "boolean",
 				default: false
+			},
+			allowMigrations: {
+				type: "boolean",
+				default: false
 			}
       	},
 		examples: [{
@@ -192,7 +215,21 @@ export const createSchema = {
 			properties: {
 				statusCode: {type: "integer"},
 				msg: {type: "string"},
-			  	occurrence_no: {type: "integer"}
+			  	opinion_no: {type: "integer"},
+				warnings: {
+					type: "array",
+					items: {
+						type: "object",
+						properties: {
+							message: {
+								type: "string"
+							},
+							data: {
+								type: "object"
+							}
+						}
+					}
+				}
 			}
 		},
 		400: {

@@ -39,7 +39,7 @@ const isDuplicate = async (conn, opinion) => {
                 author1last = :author1last and
                 author2last = :author2last and
                 pubyr = :pubyr and
-                status = not in ('misspelling of')
+                status not in ('misspelling of')
                 ${opinion.opinion_no ? 
                     `and opinion_no != :opinion_no` :
                     ''
@@ -66,12 +66,12 @@ const isDuplicate = async (conn, opinion) => {
                 ref_has_opinion ='YES' and
                 child_no = :child_no and
                 o.reference_no = r.reference_no and
-                author1last = :author1last and
-                author2last = :author2last and
-                pubyr = :pubyr and
-                status = not in ('misspelling of','homonym of')
+                o.author1last = :author1last and
+                o.author2last = :author2last and
+                o.pubyr = :pubyr and
+                o.status not in ('misspelling of','homonym of')
                 ${opinion.opinion_no ? 
-                    `and opinion_no != :opinion_no` :
+                    `and o.opinion_no != :opinion_no` :
                     ''
                 }
        `
@@ -226,10 +226,10 @@ const getOpinionsToMigrate = async (conn, child_no, child_spelling_no, exclude_o
         }
     }
 
-    return {
+    return opinions.length > 0 || parents.length > 0 ? {
         opinions: opinions,
         parents: parents
-    };
+    } : null;
 }
 
 
@@ -647,6 +647,218 @@ const verifyReference = async (conn, referenceID, pubyr) => {
     }
 }
 
+const gatherMigrations = async (conn, opinion, allowMigrations) => {
+    let migrations1, migrations2;
+    if ("misspelling of" === opinion.status) {
+        if (opinion.parent_spelling_no) {
+            migrations2 = await getOpinionsToMigrate(conn, opinion.parent_no, opinion.child_no, opinion.opinion_no)
+            if (migrations2.error)	{
+                const error = new Error(`${childSpellingTaxon.name} can't be a misspelling of ${parentTaxon.name} because there is already a '$error' opinion linking them, so they must be biologically distinct`);
+                error.statusCode = 400
+                throw error				
+            } 
+        }
+    }
+    if (opinion.child_spelling_no) {
+        migrations1 = getOpinionsToMigrate(conn, opinion.child_no, $opinion.child_spelling_no, opinion.opinion_no);
+        if (migrations1.error && childSpellingTaxon && childTaxon && childSpellingTaxon.name != childTaxon.name )	{
+            const error = new Error(`${childSpellingTaxon.name} can't be an alternate spelling of ${childTaxon.name} because there is already a '${migrations1.status}' opinion linking them, so they must be biologically distinct"`);
+            error.statusCode = 400
+            throw error				
+        } 
+    }
+
+    if (!allowMigrations && (migrations1 || migrations2)) {
+        let msg = "Opinions to migrate:"
+        migrations1.opinions.reduce((acc, opinion) => {
+            if (migrations1.opinions || migrations2.opinions) {
+                msg = `${msg}
+                ${childSpellingTaxon.name} already exists with opinions classifying it`;
+            } else if (migrations1.parents || migrations2.parents) {
+                msg = `${msg}
+                ${childSpellingTaxon.name} already exists`;
+            }
+            if ("misspelling of" !== opinion.status) {
+                /*
+                msg = `${msg}
+                If '${childTaxon.name}' is actually a misspelling of '${childSpellingTaxon.name}', please enter 'Invalid, this taxon is a misspelling of $childSpellingName' in the 'How was it classified' section, and enter '$childName' in the 'How was it spelled' section.<br>";
+                */
+                //I actually have no idea what should happen here.
+            }
+            if (migrations1.opinions) {
+                msg = `${msg}
+                If '${childSpellingTaxon.name}' is actually a homonym (same spelling, totally different taxon), you must create a new '${childSpellingTaxon.name}'`;
+            }
+            return msg
+        }, msg)
+
+        msg = `${msg}
+        If you wish to proceed, resubmit with allowMigrations set to true.
+        
+        Be aware that, if you do this, this name will be combined permanently with the existing one. This means: 
+            --'${childTaxon.name}' will be considered the 'original' name. If another spelling is actually the original one, please enter opinions based on that other name. 
+            -- authority information will be made identical and linked.  Changes to one name's authority record will be copied over automatically to the other's.
+            -- these names will be considered the same when editing/adding opinions, downloading, searching, etc.`
+        error.statusCode = 400
+        throw error				
+    }
+
+    return {
+        migrations1: migrations1,
+        migrations2: migrations2
+    }
+}
+
+const doMigrations = async (conn, migrations, opinion) => {
+    const migrations1 = migrations.migrations1
+    const migrations2 = migrations.migrations2
+    
+    if (migrations1 || migrations2)	{
+
+        for (opinion of migrations1.opinions) {
+            await resetOriginalNo(conn, opinion.child_no, opinion);
+        }
+
+        for (opinion of migrations2.opinions) {
+            await resetOriginalNo(conn, opinion.child_no, opinion);
+        }
+
+
+        //We also have to modify the parent_no so it points to the original combination of any taxa classified into any migrated opinion
+        if (migrations1.parents || migrations2.parents) {
+            const parents = migrations1.parents ?
+                migrations1.parents.concat(migrations2.parents) :
+                migrations2.parents;
+            const sql = `
+                UPDATE 
+                    opinions 
+                SET 
+                    modified=modified, 
+                    parent_no=:parent_no 
+                WHERE 
+                    parent_no IN (${parents.reduce((acc, parent, idx) => idx === 0 ? parent : `${acc}, ${parent}`), ''} 
+            `;
+            await conn.query({ 
+                namedPlaceholders: true, 
+                sql: sql
+            }, {parent_no: opinion.child_no});
+        }
+        
+        //# Make sure opinions authority information is synchronized with the original combination
+        await propagateAuthorityInfo(conn, opinion, opinion.child_no);
+        
+        //# Remove any duplicates that may have been added as a result of the migration
+        resultOpinionNumber = await removeDuplicateOpinions(conn, opinion.child_no, resultOpinionNumber);
+    }
+}
+
+const fetchPotentialSynonyms = async (conn, child_spelling_no, childTaxon) => {
+    //# we need to warn about the nasty case in which the author has synonymized
+    //#  genera X and Y, but we do not know the author's opinion on one or more
+    //#  species placed at some point in X
+    if ( /genus/.test(childTaxon.rank) && !/belongs to/.test(opinion.status))	{
+        //# get every opinion on every child ever assigned to this genus
+        //# we join on o2 to make sure that they have been
+        const sql = `
+            SELECT 
+                taxon_name,
+                o.child_no,
+                o.ref_has_opinion,
+                o.reference_no reference_no,
+                IF (o.ref_has_opinion='YES',r.author1last,o.author1last) author1last,
+                IF (o.ref_has_opinion='YES',r.author2last,o.author2last) author2last,
+                IF (o.ref_has_opinion='YES',r.pubyr,o.pubyr) pubyr,
+                r.pubyr ref_pubyr 
+            FROM 
+                refs r,
+                opinions o,
+                opinions o2,
+                authorities 
+            WHERE 
+                r.reference_no=o.reference_no AND 
+                taxon_no=o.child_no AND 
+                taxon_no=o2.child_no AND 
+                o2.parent_spelling_no = :parent_spelling_no 
+            ORDER BY 
+                pubyr
+        `;
+        const childRefs = await conn.query({ 
+            namedPlaceholders: true, 
+            sql: sql
+        }, {parent_spelling_no: child_spelling_no});
+
+        //TODO: ref_has_opinion appears to always be YES in db. Might be unused. I'm going to skip all this logic for now and just return all the results until I find out more.
+        /*
+        const authorHasOpinion = [];
+        const speciesName = [];
+        for (cr of childrefs) {
+            if ((
+                "YES" !== opinion.ref_has_opinion && 
+                cr.pubyr <= opinion.pubyr 
+            ) || ( 
+                "YES" === opinion.ref_has_opinion && 
+                cr.pubyr <= ref_pubyr //TODO: This is weird. Orig perl: cr.pubyr <= $ref->get('pubyr'). $ref comes from either opinion.reference_no or opinion.ref_has_opinion, or something, I dunno. Line 794 in Opinion.pm. For now, I added it to the select above.
+
+            ))	{
+                speciesName[cr.child_no] = cr.taxon_name;
+                if (!authorHasOpinion[cr.child_no])	{
+                    authorHasOpinion[cr.child_no] = "NO";
+                }
+                //# we test only on author1last, author2last, and pubyr to avoid
+                //#  false mismatches due to typos
+                if (
+                    cr.reference_no === resultReferenceNumber &&
+                    "YES" === cr.ref_has_opinion && 
+                    "YES" === opinion.ref_has_opinion 
+                ) {
+                    authorHasOpinion[cr.child_no] = "YES";
+                } else if ( 
+                    cr.author1last === opinion.author1last && 
+                    cr.author2last === opinion.author2last && 
+                    cr.pubyr === opinion.pubyr && 
+                    "YES" !== cr.ref_has_opinion && 
+                    "YES" !== opinion.ref_has_opinion
+                )	{
+                    authorHasOpinion[cr.child_no] = "YES";
+                }
+            }
+        }
+
+        const children = Object.keys(authorHasOpinion).sort((a,b) => speciesName[a].localeCompare(speciesName[b]))
+        let needOpinion;
+        for (ch of children) {
+            if ("NO" === authorHasOpinion[ch])	{
+                if (!needOpinion) {
+                    needOpinion = speciesName[ch];
+                } else	{
+                    if (!/ and /.test(needOpinion))	{
+                        needOpinion += " and " + speciesName[ch];
+                    } else	{
+                        needOpinion.replaceAll(" and ", ", ");
+                        needOpinion += " and " + speciesName[ch];
+                    }
+                }
+            }
+        }
+        //$needOpinion =~ s/^, //; //TODO: Not sure what this does, omitting for now
+        */
+        /*
+        //TODO: skipping for now. Probably return raw data rather than string
+        const authors;
+        if ( $opinionHTML =~ / and | et al/ )	{
+            $authors = "These authors'";
+        } else	{
+            $authors = "This author's";
+        }
+        if ( $needOpinion =~ / and / )	{
+            push @warnings , $authors . " opinions on " . $needOpinion . " still may need to be entered";
+        } elsif ( $needOpinion )	{
+            push @warnings , $authors . " opinion on " . $needOpinion . " still may need to be entered";
+        }
+        */
+    }
+}
+
 const updatePerson = async (conn, user) => {
     const rs = await conn.query("update person set last_action = now(), last_entry = now() where person_no = ?", [user.userID]);
     if (rs.affectedRows !== 1) throw new Error("Could not update person table");
@@ -700,7 +912,7 @@ export const getOpinion = async (pool, id) => {
     }
 }
 
-export const createOpinion = async (pool, opinion, user, allowDuplicate) => {
+export const createOpinion = async (pool, opinion, user, allowDuplicate, allowMigrations) => {
     logger.info("createOpinion");
     logger.trace(opinion);
     logger.trace(user)
@@ -753,234 +965,18 @@ export const createOpinion = async (pool, opinion, user, allowDuplicate) => {
             //verify reference
             await verifyReference(conn, opinion.reference_no, opinion.pubyr);
             
-            //Gather migrations (should probably be in seperate routine)
-            let migrations1 = {}, migrations2 = {};
-            if ("misspelling of" === opinion.status) {
-                if (opinion.parent_spelling_no) {
-                    migrations2 = await getOpinionsToMigrate(conn, opinion.parent_no, opinion.child_no, opinion.opinion_no)
-                    if (migrations2.error)	{
-                        const error = new Error(`${childSpellingTaxon.name} can't be a misspelling of ${parentTaxon.name} because there is already a '$error' opinion linking them, so they must be biologically distinct`);
-                        error.statusCode = 400
-                        throw error				
-                    } 
-                }
-            }
-            if (opinion.child_spelling_no) {
-                migrations1 = getOpinionsToMigrate(conn, opinion.child_no, $opinion.child_spelling_no, opinion.opinion_no);
-                if (migrations1.error && childSpellingTaxon && childTaxon && childSpellingTaxon.name != childTaxon.name )	{
-                    const error = new Error(`${childSpellingTaxon.name} can't be an alternate spelling of ${childTaxon.name} because there is already a '${migrations1.status}' opinion linking them, so they must be biologically distinct"`);
-                    error.statusCode = 400
-                    throw error				
-                } 
-            }
-
-            if (!allowMigrations && (migrations1 || migrations2)) {
-                let msg = "Opinions to migrate:"
-                migrations1.opinions.reduce((acc, opinion) => {
-                    if (migrations1.opinions || migrations2.opinions) {
-                        msg = `${msg}
-                        ${childSpellingTaxon.name} already exists with opinions classifying it`;
-                    } else if (migrations1.parents || migrations2.parents) {
-                        msg = `${msg}
-                        ${childSpellingTaxon.name} already exists`;
-                    }
-                    if ("misspelling of" !== opinion.status) {
-                        /*
-                        msg = `${msg}
-                        If '${childTaxon.name}' is actually a misspelling of '${childSpellingTaxon.name}', please enter 'Invalid, this taxon is a misspelling of $childSpellingName' in the 'How was it classified' section, and enter '$childName' in the 'How was it spelled' section.<br>";
-                        */
-                       //I actually have no idea what should happen here.
-                    }
-                    if (migrations1.opinions) {
-                        msg = `${msg}
-                        If '${childSpellingTaxon.name}' is actually a homonym (same spelling, totally different taxon), you must create a new '${childSpellingTaxon.name}'`;
-                    }
-                    return msg
-                }, msg)
-
-                msg = `${msg}
-                If you wish to proceed, resubmit with allowMigrations set to true.
-                
-                Be aware that, if you do this, this name will be combined permanently with the existing one. This means: 
-                    --'${childTaxon.name}' will be considered the 'original' name. If another spelling is actually the original one, please enter opinions based on that other name. 
-                    -- authority information will be made identical and linked.  Changes to one name's authority record will be copied over automatically to the other's.
-                    -- these names will be considered the same when editing/adding opinions, downloading, searching, etc.`
-                error.statusCode = 400
-                throw error				
-            }
+            const migrations = await gatherMigrations(conn, opinion, allowMigrations)
 
             const insertSQL = `insert into opinions (${insertAssets.propStr}) values (${insertAssets.valStr}) returning opinion_no`
             logger.trace(insertSQL)
             logger.trace(insertAssets.values)
         
-            //Do migrations
-            if (migrations1 || migrations2)	{
-
-                for (opinion of migrations1.opinions) {
-                    await resetOriginalNo(conn, opinion.child_no, opinion);
-                }
-
-                for (opinion of migrations2.opinions) {
-                    await resetOriginalNo(conn, opinion.child_no, opinion);
-                }
-
-       
-                //We also have to modify the parent_no so it points to the original combination of any taxa classified into any migrated opinion
-                if (migrations1.parents || migrations2.parents) {
-                    const parents = migrations1.parents ?
-                        migrations1.parents.concat(migrations2.parents) :
-                        migrations2.parents;
-                    const sql = `
-                        UPDATE 
-                            opinions 
-                        SET 
-                            modified=modified, 
-                            parent_no=:parent_no 
-                        WHERE 
-                            parent_no IN (${parents.reduce((acc, parent, idx) => idx === 0 ? parent : `${acc}, ${parent}`), ''} 
-                    `;
-                    await conn.query({ 
-                        namedPlaceholders: true, 
-                        sql: sql
-                    }, {parent_no: opinion.child_no});
-                }
-                
-                //# Make sure opinions authority information is synchronized with the original combination
-                propagateAuthorityInfo(conn, opinion, opinion.child_no);
-                
-
-                //# Remove any duplicates that may have been added as a result of the migration
-                resultOpinionNumber = removeDuplicateOpinions(conn, opinion.child_no, resultOpinionNumber);
-                
-            }
+            await doMigrations(conn, migrations, opinion)
 
             //We've decided not to do this. Keeping it ghosted for now in case we change our mind.
             //await fixMassEstimates(conn, opinion.child_no);
 
-            //# we need to warn about the nasty case in which the author has synonymized
-            //#  genera X and Y, but we do not know the author's opinion on one or more
-            //#  species placed at some point in X
-            if ( /genus/.test(childTaxon.rank) && !/belongs to/.test(opinion.status))	{
-                //# get every opinion on every child ever assigned to this genus
-                //# we join on o2 to make sure that they have been
-                const sql = `
-                    SELECT 
-                        taxon_name,
-                        o.child_no,
-                        o.ref_has_opinion,
-                        o.reference_no reference_no,
-                        IF (o.ref_has_opinion='YES',r.author1last,o.author1last) author1last,
-                        IF (o.ref_has_opinion='YES',r.author2last,o.author2last) author2last,
-                        IF (o.ref_has_opinion='YES',r.pubyr,o.pubyr) pubyr,
-                        r.pubyr ref_pubyr 
-                    FROM 
-                        refs r,
-                        opinions o,
-                        opinions o2,
-                        authorities 
-                    WHERE 
-                        r.reference_no=o.reference_no AND 
-                        taxon_no=o.child_no AND 
-                        taxon_no=o2.child_no AND 
-                        o2.parent_spelling_no = :parent_spelling_no 
-                    ORDER BY 
-                        pubyr
-                `;
-                const childRefs = await conn.query({ 
-                    namedPlaceholders: true, 
-                    sql: sql
-                }, {parent_spelling_no: opinion.child_spelling_no});
-
-                const authorHasOpinion = [];
-                const speciesName = [];
-                for (cr of childrefs) {
-                    if ((
-                        "YES" !== opinion.ref_has_opinion && 
-                        cr.pubyr <= opinion.pubyr 
-                    ) || ( 
-                        "YES" === opinion.ref_has_opinion && 
-                        cr.pubyr <= ref_pubyr //TODO: This is weird. Orig perl: cr.pubyr <= $ref->get('pubyr'). $ref comes from either opinion.reference_no or opinion.ref_has_opinion, or something, I dunno. Line 794 in Opinion.pm. For now, I added it to the select above.
-
-                    ))	{
-                        speciesName[cr.child_no] = cr.taxon_name;
-                        if (!authorHasOpinion[cr.child_no])	{
-                            authorHasOpinion[cr.child_no] = "NO";
-                        }
-                        //# we test only on author1last, author2last, and pubyr to avoid
-                        //#  false mismatches due to typos
-                        if (
-                            cr.reference_no === resultReferenceNumber &&
-                            "YES" === cr.ref_has_opinion && 
-                            "YES" === opinion.ref_has_opinion 
-                        ) {
-                            authorHasOpinion[cr.child_no] = "YES";
-                        } else if ( 
-                            cr.author1last === opinion.author1last && 
-                            cr.author2last === opinion.author2last && 
-                            cr.pubyr === opinion.pubyr && 
-                            "YES" !== cr.ref_has_opinion && 
-                            "YES" !== opinion.ref_has_opinion
-                        )	{
-                            authorHasOpinion[cr.child_no] = "YES";
-                        }
-                    }
-                }
-
-                const children = Object.keys(authorHasOpinion).sort((a,b) => speciesName[a].localeCompare(speciesName[b]))
-                let needOpinion;
-                for (ch of children) {
-                    if ("NO" === authorHasOpinion[ch])	{
-                        if (!needOpinion) {
-                            needOpinion = speciesName[ch];
-                        } else	{
-                            if (!/ and /.test(needOpinion))	{
-                                needOpinion += " and " + speciesName[ch];
-                            } else	{
-                                needOpinion.replaceAll(" and ", ", ");
-                                needOpinion += " and " + speciesName[ch];
-                            }
-                        }
-                    }
-                }
-                //$needOpinion =~ s/^, //; //TODO: Not sure what this does, omitting for now
-
-                /*
-                //TODO: skipping for now. Probably return raw data rather than string
-                const authors;
-                if ( $opinionHTML =~ / and | et al/ )	{
-                    $authors = "These authors'";
-                } else	{
-                    $authors = "This author's";
-                }
-                if ( $needOpinion =~ / and / )	{
-                    push @warnings , $authors . " opinions on " . $needOpinion . " still may need to be entered";
-                } elsif ( $needOpinion )	{
-                    push @warnings , $authors . " opinion on " . $needOpinion . " still may need to be entered";
-                }
-                */
-            }
-        
-            /*
-            //TODO: figure out how to send this warning
-            my $end_message .= qq|
-        <div align="center">
-        <p class="medium">The opinion $opinionHTML has been $enterupdate</p>
-        |;
-        
-            if (@warnings) {
-                $end_message .= "<div class=\"warning\">";
-                if ( $#warnings > 0 )	{
-                    $end_message .= "Warnings:<br>";
-                    $end_message .= "<li>$_</li>" for (@warnings);
-                } else	{
-                    $end_message .= "Warning: " . $warnings[0];
-                }
-                $end_message .= "</div>";
-            }
-            */
-
-            //Don't get excited. There's still a lot more migration stuff after this
-        
+            const synonyms = await fetchPotentialSynonyms(conn, opinion.child_spelling_no, childTaxon)
 
             await updatePerson(conn, user);
 
@@ -995,7 +991,17 @@ export const createOpinion = async (pool, opinion, user, allowDuplicate) => {
             opinion.opinion_no = res[0].opinion_no;
 
             await conn.commit();
-            return opinion;
+            //return opinion;
+            return {
+                opinion: opinion,
+                warnings: synonyms ? [{
+                    warning: "Opinions may need to be altered for these child taxa.",
+                    data: {
+                        taxaToCheck: synonyms.map((s) => s.taxon_name)
+                    }
+                }] :
+                null
+            }
         } else {
             const error = new Error(`The author's opinion on ${childTaxon.taxon_name} has already been entered - an author can only have one opinion on a name`);
             error.statusCode = 400

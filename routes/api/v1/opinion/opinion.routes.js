@@ -65,9 +65,13 @@ export default async function (fastify, opts) {
 			fastify.log.info("opinion POST")
 			fastify.log.trace(req.body)
 	
-			const newOpinion = await createOpinion(fastify.mariadb, req.body.opinion, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate)
+			//const newOpinion = await createOpinion(fastify.mariadb, req.body.opinion, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate)
 		
-			return {statusCode: 201, msg: "opinion created", opinion_no: newOpinion.opinion_no}
+			//return {statusCode: 201, msg: "opinion created", opinion_no: newOpinion.opinion_no}
+
+			const createResult = await createOpinion(fastify.mariadb, req.body.opinion, {userID: req.userID, userName: req.userName, authorizerID: req.authorizerID}, req.body.allowDuplicate, req.body.allowMigrations)
+		
+			return {statusCode: 201, msg: "opinion created", opinion_no: createResult.opinion.opinion_no, warnings: createResult.warnings ? createResult.warnings : null}
 		}
 	)
 

@@ -6,35 +6,18 @@ import { getOriginalCombination } from '../authority/authority.model.js';
 const isDuplicate = async (conn, opinion) => {
     logger.info("isDuplicate");
 
-    //TODO: See Opinion.pm, line 808, *837, *893, 907, 937, 968, 993, 1067
-    //TODO: Add verify these
+
     const rows = await conn.query({
         namedPlaceholders: true,
-        /*
+       //NOTE: There appears to have been a bug in the following select in the original perl code. That used "ref_has_opinion !='YES'". The ref_has_opinion column contains many nulls. Those are ignored when != is used. Unless, the original coder intended that, the proper way to do this comparison in mysql syntax is "NOT (ref_has_opinion <=> 'YES')". That's how I'm doing it here.
+       //From https://github.com/paleobiodb/classic/blob/1cc4d2748c339856c9263743a4bb6c6e1372ad8b/lib/PBDB/Opinion.pm#L820
         sql:`
             select 
                 opinion_no 
             from 
                 opinions 
             where 
-                child_no = :child_no and
-                child_spelling_no = :child_spelling_no and
-                parent_no = :parent_no and
-                parent_spelling_no = :parent_spelling_no
-                ${opinion.opinion_no ? 
-                    `and opinion_no != :opinion_no` :
-                    ''
-                }
-        `
-        */
-       //From line 808
-        sql:`
-            select 
-                opinion_no 
-            from 
-                opinions 
-            where 
-                ref_has_opinion !='YES' and
+                NOT (ref_has_opinion <=> 'YES') and
                 child_no = :child_no and
                 author1last = :author1last and
                 author2last = :author2last and
@@ -46,14 +29,14 @@ const isDuplicate = async (conn, opinion) => {
                 }
        `
     }, {
-        child_no: opinion.child_no || null, 
-        author1last: opinion.author1last || null, 
-        author2last: opinion.author2last || null, 
-        pubyr: opinion.pubyr || null, 
+        child_no: opinion.child_no, 
+        author1last: opinion.author1last, 
+        author2last: opinion.author2last || '', 
+        pubyr: opinion.pubyr, 
         opinion_no: opinion.opinion_no || null, 
     });
     
-    //Per line 818
+    //From https://github.com/paleobiodb/classic/blob/1cc4d2748c339856c9263743a4bb6c6e1372ad8b/lib/PBDB/Opinion.pm#L829
     const rows2 = await conn.query({
         namedPlaceholders: true,
         sql:`
@@ -76,10 +59,10 @@ const isDuplicate = async (conn, opinion) => {
                 }
        `
     }, {
-        child_no: opinion.child_no || null, 
-        author1last: opinion.author1last || null, 
-        author2last: opinion.author2last || null, 
-        pubyr: opinion.pubyr || null, 
+        child_no: opinion.child_no, 
+        author1last: opinion.author1last, 
+        author2last: opinion.author2last || '', 
+        pubyr: opinion.pubyr, 
         opinion_no: opinion.opinion_no || null, 
     });
 
@@ -797,7 +780,7 @@ const fetchPotentialSynonyms = async (conn, child_spelling_no, childTaxon) => {
                 cr.pubyr <= opinion.pubyr 
             ) || ( 
                 "YES" === opinion.ref_has_opinion && 
-                cr.pubyr <= ref_pubyr //TODO: This is weird. Orig perl: cr.pubyr <= $ref->get('pubyr'). $ref comes from either opinion.reference_no or opinion.ref_has_opinion, or something, I dunno. Line 794 in Opinion.pm. For now, I added it to the select above.
+                cr.pubyr <= ref_pubyr //TODO: This is weird. Orig perl: cr.pubyr <= $ref->get('pubyr'). $ref comes from either opinion.reference_no or opinion.ref_has_opinion, or something, I dunno. See https://github.com/paleobiodb/classic/blob/1cc4d2748c339856c9263743a4bb6c6e1372ad8b/lib/PBDB/Opinion.pm#L794. For now, I added it to the select above.
 
             ))	{
                 speciesName[cr.child_no] = cr.taxon_name;
@@ -928,7 +911,7 @@ export const createOpinion = async (pool, opinion, user, allowDuplicate, allowMi
         conn = await pool.getConnection();
         await conn.beginTransaction();
 
-        //Per line 763
+        //Per https://github.com/paleobiodb/classic/blob/1cc4d2748c339856c9263743a4bb6c6e1372ad8b/lib/PBDB/Opinion.pm#L774
         opinion.child_no = await getOriginalCombination(conn, opinion.child_no);
 
         const childTaxon = await fetchTaxon(conn, opinion.child_no);
@@ -958,7 +941,7 @@ export const createOpinion = async (pool, opinion, user, allowDuplicate, allowMi
         }
 
         if (
-            //allowDuplicate || 
+            //allowDuplicate || //TODO: Not sure this applies for opinions
             ! await isDuplicate(conn, opinion)
         ) {
 
@@ -976,8 +959,6 @@ export const createOpinion = async (pool, opinion, user, allowDuplicate, allowMi
             //We've decided not to do this. Keeping it ghosted for now in case we change our mind.
             //await fixMassEstimates(conn, opinion.child_no);
 
-            const synonyms = await fetchPotentialSynonyms(conn, opinion.child_spelling_no, childTaxon)
-
             await updatePerson(conn, user);
 
             let res = await conn.query({ 
@@ -987,6 +968,8 @@ export const createOpinion = async (pool, opinion, user, allowDuplicate, allowMi
             logger.trace("after insert")
             logger.trace(res)
             logger.trace(res[0].opinion_no)
+
+            const synonyms = await fetchPotentialSynonyms(conn, opinion.child_spelling_no, childTaxon)
 
             opinion.opinion_no = res[0].opinion_no;
 

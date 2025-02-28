@@ -86,6 +86,7 @@ const fetchTaxon = async (conn, taxonID) => {
     const species = taxonParsed[0][3];
     const subspecies = taxonParsed[0][4];
 
+    /*
     return {
         rank: taxonResult[0].taxon_rank,
         name: taxonResult[0].taxon_name,
@@ -97,12 +98,28 @@ const fetchTaxon = async (conn, taxonID) => {
                         taxonParsed[0][3] :
                  null
     }
+    */
+    return {
+        ...taxonResult[0],
+        genus: taxonParsed[0][1] || null,
+        subgenus: taxonParsed[0][2] || null,
+        species: taxonParsed[0][3] ? 
+                    taxonParsed[0][4] ?
+                        `${taxonParsed[0][3]} ${taxonParsed[0][4]}` :
+                        taxonParsed[0][3] :
+                 null
+    }
+
 }
 
 
 //This is a translation of the perl routine getOpinionsToMigrate in Opinion.pm. There is login in that routine that is inconsistent. There is also logic that I do not fully understand. I've tried to fix what it obvious to me and left the rest intact. 
 //Comment from original routine: Gets a list of opinions that will be moved from a spelling to an original name.  Made into its own function so we can prompt the user before the move actually happens to make sure they're not making a mistake. The exclude_opinion_no is passed so we exclude the current opinion in the migration, which will only happen on an edit
 const getOpinionsToMigrate = async (conn, child_no, child_spelling_no, exclude_opinion_no) => {
+    logger.trace("getOpinionsToMigrate")
+    logger.trace("child_no = " + child_no)
+    logger.trace("child_spelling_no = " + child_spelling_no)
+    logger.trace("exclude_opinion_no = " + exclude_opinion_no)
 
     /*
     NOTE: The original version of this select had duplicate logic in the WHERE clause:
@@ -157,7 +174,7 @@ const getOpinionsToMigrate = async (conn, child_no, child_spelling_no, exclude_o
             error: results[0].status
         };
     }
-    //It's not clear to me what just happened. We abandon results here.
+    //TODO: It's not clear to me what just happened. We abandon results here. I guess this was just to check on some condition in which there is nothing to return?
  
     const orig_no = getOriginalCombination(conn ,child_spelling_no);
     sql = `
@@ -224,6 +241,9 @@ const getOpinionsToMigrate = async (conn, child_no, child_spelling_no, exclude_o
 # This can't determine misspellings, which must be determined externally
 */
 const guessSpellingReason = (child, spelling) => {
+    logger.trace("guessSpellingReason")
+    logger.trace("child = " + child)
+    logger.trace("spelling = " + spelling)
     
     let spellingReason = "";
     
@@ -272,6 +292,9 @@ const guessSpellingReason = (child, spelling) => {
 #  have no time right now to fix it
 */
 const resetOriginalNo = async (conn, newOriginalNumber, opinion) => {
+    logger.trace("resetOriginalNo")
+    logger.trace("newOriginalNumber = " + newOriginalNumber)
+
    if (!newOriginalNumber) return
     
     const childTaxon = await fetchTaxon(conn, newOriginalNumber);
@@ -315,20 +338,75 @@ const resetOriginalNo = async (conn, newOriginalNumber, opinion) => {
     });
 }
 
+//Ported from https://github.com/paleobiodb/classic/blob/1cc4d2748c339856c9263743a4bb6c6e1372ad8b/lib/PBDB/TaxonInfo.pm#L4934
+//# Get all recombinations and corrections a taxon_no could be, but not junior synonyms
+//# Assume that the taxon_no passed in is already an original combination
+const getAllSpellings = async (conn, taxonNos) => {
+    logger.trace("getAllSpellings")
+
+    const all = {}
+
+    for (taxonNo of taxonNos) {
+        if (parseInt(taxonNo)) {
+            all[taxonNo] = 1
+        }
+    }
+
+    if (Object.keys(all) > 0) {
+        const taxonNoList = Object.keys(all).join()
+
+        let results = await conn.query({ 
+            sql: `SELECT DISTINCT child_spelling_no FROM opinions WHERE child_no IN (${taxonNoList})`
+        });
+        for (row of results) {
+            all[row.child_spelling_no] = 1
+        }
+
+        results = await conn.query({ 
+            sql: `SELECT DISTINCT child_no FROM opinions WHERE child_spelling_no IN (${taxonNoList})`
+        });
+        for (row of results) {
+            all[row.child_no] = 1
+        }
+
+        //# Bug fix: bad records with multiple original combinations
+        results = await conn.query({ 
+            sql: `SELECT DISTINCT child_spelling_no FROM opinions WHERE child_no IN (${taxonNoList})`
+        });
+        for (row of results) {
+            all[row.child_spelling_no] = 1
+        }
+
+        results = await conn.query({ 
+            sql: `SELECT DISTINCT parent_spelling_no FROM opinions WHERE status='misspelling of' AND child_no IN (${taxonNoList})`
+        });
+        for (row of results) {
+            all[row.parent_spelling_no] = 1
+        }
+    }
+    delete all[''];
+    delete all['0'];
+    return Object.keys(all);
+}
+
 //NOTE: This routine is a translation of the same routine in Taxon.pm
-const propagateAuthorityInfo = async (conn, q, taxonNo, thisIsBest) => {
-    if (!taxon_no) return;
+const propagateAuthorityInfo = async (conn, taxon, taxonNo) => {
+    logger.trace("propagateAuthorityInfo")
+    logger.trace("taxonNo = " + taxonNo)
+    logger.trace(taxon)
 
-    const origNo = await getOriginalCombination(conn,taxon_no);
-    if (!orig_no) return;
+    if (!taxonNo) return;
 
-    const spellingNos = await getAllSpellings(conn, origNo); //TODO: implement this
+    const origNo = await getOriginalCombination(conn, taxonNo);
+    if (!origNo) return;
+
+    const spellingNos = await getAllSpellings(conn, origNo); 
 
     //# Note that this is the taxon_no passed in, not the original combination -- an update to
     //# a spelling should proprate around as well
-    const me = await fetchTaxon(conn, taxon_no);
+    const me = await fetchTaxon(conn, taxonNo);
 
-    const authorityFields = ('author1init','author1last','author2init','author2last','otherauthors','pubyr');
+    //const authorityFields = ('author1init','author1last','author2init','author2last','otherauthors','pubyr');
     const moreFields = ('pages','figures','common_name','type_specimen','museum','catalog_number','type_body_part','part_details','type_locality','extant','form_taxon','preservation');
 
     //# Two steps: find best authority info, then propagate to all spelling variants
@@ -350,7 +428,7 @@ const propagateAuthorityInfo = async (conn, q, taxonNo, thisIsBest) => {
                 quality = 4;
             }
         } else if (taxon.author1last) {
-            if (taxon.taxon_no === orig_no) {
+            if (taxon.taxon_no === origNo) {
                 quality = 3;
             } else {
                 quality = 2;
@@ -382,7 +460,7 @@ const propagateAuthorityInfo = async (conn, q, taxonNo, thisIsBest) => {
     const seenMore = {}
     for (spelling of spellings) {
         for (field of moreFields) {
-            if (spelling.field !== '' && !seenMore[field]) {
+            if ('' !== spelling.field && !seenMore[field]) {
                 seenMore[field] = spelling.field;
             }
 
@@ -398,8 +476,8 @@ const propagateAuthorityInfo = async (conn, q, taxonNo, thisIsBest) => {
     //#  field must be used) JA 10.5.12
     for (field of ["comments", "discussion"]) {
         //# ref_is_authority is a required field, so this test is trustworthy
-        if (q.ref_is_authority)	{
-            seenMore[field] = q[field];
+        if (taxon.ref_is_authority)	{
+            seenMore[field] = taxon[field];
         } else	{
             const textSeen = [];
             for (spelling of spellings) {
@@ -463,7 +541,7 @@ const propagateAuthorityInfo = async (conn, q, taxonNo, thisIsBest) => {
             }, {
                 taxon_no: spellingNo,
             });
-                }
+        }
     }
 }
 
@@ -630,22 +708,51 @@ const verifyReference = async (conn, referenceID, pubyr) => {
     }
 }
 
-const gatherMigrations = async (conn, opinion, allowMigrations) => {
+const gatherMigrations = async (conn, opinion, childTaxon, allowMigrations) => {
+    logger.trace("gatherMigrations")
+
+    let childSpellingTaxon;
+    if (opinion.child_spelling_no) {
+        childSpellingTaxon = await fetchTaxon(conn, opinion.child_spelling_no);
+        logger.trace("childSpellingTaxon = ")
+        logger.trace(childSpellingTaxon)
+    }
+
+    //Note: I have no idea if I'm doing this parent stuff right
+    let parentTaxon;
+    if (opinion.parent_no) {
+        parentTaxon = await fetchTaxon(conn, opinion.parent_no);
+        logger.trace("parentTaxon = ")
+        logger.trace(parentTaxon)
+    }
+
+    /*
+    //unused
+    let parentSpellingTaxon;
+    if (opinion.parent_spelling_no) {
+        parentSpellingTaxon = await fetchTaxon(conn, opinion.parent_spelling_no);
+        logger.trace("parentSpellingTaxon = ")
+        logger.trace(parentSpellingTaxon)
+    }
+    */
+
     let migrations1, migrations2;
     if ("misspelling of" === opinion.status) {
+        logger.trace("misspelling of")
         if (opinion.parent_spelling_no) {
             migrations2 = await getOpinionsToMigrate(conn, opinion.parent_no, opinion.child_no, opinion.opinion_no)
-            if (migrations2.error)	{
-                const error = new Error(`${childSpellingTaxon.name} can't be a misspelling of ${parentTaxon.name} because there is already a '$error' opinion linking them, so they must be biologically distinct`);
+            if (migrations2.error)	{ 
+                const error = new Error(`${childSpellingTaxon.taxon_name} can't be a misspelling of ${parentTaxon.taxon_name} because there is already a '${migrations2.error}' opinion linking them, so they must be biologically distinct`);
                 error.statusCode = 400
                 throw error				
             } 
         }
     }
     if (opinion.child_spelling_no) {
+        logger.trace("child_spelling_no")
         migrations1 = getOpinionsToMigrate(conn, opinion.child_no, $opinion.child_spelling_no, opinion.opinion_no);
-        if (migrations1.error && childSpellingTaxon && childTaxon && childSpellingTaxon.name != childTaxon.name )	{
-            const error = new Error(`${childSpellingTaxon.name} can't be an alternate spelling of ${childTaxon.name} because there is already a '${migrations1.status}' opinion linking them, so they must be biologically distinct"`);
+        if (migrations1.error && childSpellingTaxon && childTaxon && childSpellingTaxon.taxon_name != childTaxon.taxon_name )	{
+            const error = new Error(`${childSpellingTaxon.taxon_name} can't be an alternate spelling of ${childTaxon.taxon_name} because there is already a '${migrations1.error}' opinion linking them, so they must be biologically distinct"`);
             error.statusCode = 400
             throw error				
         } 
@@ -656,21 +763,21 @@ const gatherMigrations = async (conn, opinion, allowMigrations) => {
         migrations1.opinions.reduce((acc, opinion) => {
             if (migrations1.opinions || migrations2.opinions) {
                 msg = `${msg}
-                ${childSpellingTaxon.name} already exists with opinions classifying it`;
+                ${childSpellingTaxon.taxon_name} already exists with opinions classifying it`;
             } else if (migrations1.parents || migrations2.parents) {
                 msg = `${msg}
-                ${childSpellingTaxon.name} already exists`;
+                ${childSpellingTaxon.name_taxon} already exists`;
             }
             if ("misspelling of" !== opinion.status) {
                 /*
                 msg = `${msg}
                 If '${childTaxon.name}' is actually a misspelling of '${childSpellingTaxon.name}', please enter 'Invalid, this taxon is a misspelling of $childSpellingName' in the 'How was it classified' section, and enter '$childName' in the 'How was it spelled' section.<br>";
                 */
-                //I actually have no idea what should happen here.
+                //TODO: The above is gobbledigook in an api setting. I actually have no idea what should be described to client here.
             }
             if (migrations1.opinions) {
                 msg = `${msg}
-                If '${childSpellingTaxon.name}' is actually a homonym (same spelling, totally different taxon), you must create a new '${childSpellingTaxon.name}'`;
+                If '${childSpellingTaxon.taxon_name}' is actually a homonym (same spelling, totally different taxon), you must create a new '${childSpellingTaxon.taxon_name}'`;
             }
             return msg
         }, msg)
@@ -679,7 +786,7 @@ const gatherMigrations = async (conn, opinion, allowMigrations) => {
         If you wish to proceed, resubmit with allowMigrations set to true.
         
         Be aware that, if you do this, this name will be combined permanently with the existing one. This means: 
-            --'${childTaxon.name}' will be considered the 'original' name. If another spelling is actually the original one, please enter opinions based on that other name. 
+            --'${childTaxon.taxon_name}' will be considered the 'original' name. If another spelling is actually the original one, please enter opinions based on that other name. 
             -- authority information will be made identical and linked.  Changes to one name's authority record will be copied over automatically to the other's.
             -- these names will be considered the same when editing/adding opinions, downloading, searching, etc.`
         error.statusCode = 400
@@ -739,7 +846,7 @@ const fetchPotentialSynonyms = async (conn, child_spelling_no, childTaxon) => {
     //# we need to warn about the nasty case in which the author has synonymized
     //#  genera X and Y, but we do not know the author's opinion on one or more
     //#  species placed at some point in X
-    if ( /genus/.test(childTaxon.rank) && !/belongs to/.test(opinion.status))	{
+    if ( /genus/.test(childTaxon.taxon_rank) && !/belongs to/.test(opinion.status))	{
         //# get every opinion on every child ever assigned to this genus
         //# we join on o2 to make sure that they have been
         const sql = `
@@ -918,28 +1025,6 @@ export const createOpinion = async (pool, opinion, user, allowDuplicate, allowMi
         logger.trace("childTaxon = ")
         logger.trace(childTaxon)
 
-        let childSpellingTaxon;
-        if (opinion.child_spelling_no) {
-            childSpellingTaxon = await fetchTaxon(conn, opinion.child_spelling_no);
-            logger.trace("childSpellingTaxon = ")
-            logger.trace(childSpellingTaxon)
-        }
-
-        //Note: I have no idea if I'm doing this parent stuff right
-        let parentTaxon;
-        if (opinion.parent_no) {
-            parentTaxon = await fetchTaxon(conn, opinion.parent_no);
-            logger.trace("parentTaxon = ")
-            logger.trace(parentTaxon)
-        }
-
-        let parentSpellingTaxon;
-        if (opinion.parent_spelling_no) {
-            parentSpellingTaxon = await fetchTaxon(conn, opinion.parent_spelling_no);
-            logger.trace("parentSpellingTaxon = ")
-            logger.trace(parentSpellingTaxon)
-        }
-
         if (
             //allowDuplicate || //TODO: Not sure this applies for opinions
             ! await isDuplicate(conn, opinion)
@@ -948,17 +1033,13 @@ export const createOpinion = async (pool, opinion, user, allowDuplicate, allowMi
             //verify reference
             await verifyReference(conn, opinion.reference_no, opinion.pubyr);
             
-            const migrations = await gatherMigrations(conn, opinion, allowMigrations)
+            const migrations = await gatherMigrations(conn, opinion, childTaxon, allowMigrations)
+            logger.trace(migrations)
 
             const insertSQL = `insert into opinions (${insertAssets.propStr}) values (${insertAssets.valStr}) returning opinion_no`
             logger.trace(insertSQL)
             logger.trace(insertAssets.values)
         
-            await doMigrations(conn, migrations, opinion)
-
-            //We've decided not to do this. Keeping it ghosted for now in case we change our mind.
-            //await fixMassEstimates(conn, opinion.child_no);
-
             await updatePerson(conn, user);
 
             let res = await conn.query({ 
@@ -969,9 +1050,14 @@ export const createOpinion = async (pool, opinion, user, allowDuplicate, allowMi
             logger.trace(res)
             logger.trace(res[0].opinion_no)
 
-            const synonyms = await fetchPotentialSynonyms(conn, opinion.child_spelling_no, childTaxon)
-
             opinion.opinion_no = res[0].opinion_no;
+
+            await doMigrations(conn, migrations, opinion)
+
+            //We've decided not to do this. Keeping it ghosted for now in case we change our mind.
+            //await fixMassEstimates(conn, opinion.child_no);
+
+            const synonyms = await fetchPotentialSynonyms(conn, opinion.child_spelling_no, childTaxon)
 
             await conn.commit();
             //return opinion;

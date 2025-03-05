@@ -7,7 +7,7 @@ const currentYear = new Date(Date.now()).getFullYear();
 const opinionProperties = {
 	reference_no: {type: "integer"},
 	child_no: {type: "integer"},	
-	child_spelling_no: {type: "integer"},
+	//child_spelling_no: {type: "integer"},
 	status_old: {
 		type: "string",
 		enum: ['belongs to','recombined as','subjective synonym of','objective synonym of','homonym of','replaced by','corrected as','rank changed as','nomen dubium','nomen nudum','nomen oblitum','nomen vanum','revalidated']
@@ -35,7 +35,7 @@ const opinionProperties = {
 		enum: ['','none','new','emended','repeated']
 	},	
 	parent_no: {type: "integer"},	
-	parent_spelling_no: {type: "integer"},
+	//parent_spelling_no: {type: "integer"},
 	ref_has_opinion: {
 		type: "string",
 		maxLength: 4,

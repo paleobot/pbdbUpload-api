@@ -168,6 +168,7 @@ const getOpinionsToMigrate = async (conn, child_no, child_spelling_no, exclude_o
         exclude_opinion_no: exclude_opinion_no
     });
     if ( results )	{
+        logger.trace("weird case")
         return {
             opinions: [],
             parents: [],
@@ -740,7 +741,9 @@ const gatherMigrations = async (conn, opinion, childTaxon, allowMigrations) => {
     if ("misspelling of" === opinion.status) {
         logger.trace("misspelling of")
         if (opinion.parent_spelling_no) {
+            logger.trace("parent_spelling_no")
             migrations2 = await getOpinionsToMigrate(conn, opinion.parent_no, opinion.child_no, opinion.opinion_no)
+            logger.trace(migrations2)
             if (migrations2.error)	{ 
                 const error = new Error(`${childSpellingTaxon.taxon_name} can't be a misspelling of ${parentTaxon.taxon_name} because there is already a '${migrations2.error}' opinion linking them, so they must be biologically distinct`);
                 error.statusCode = 400
@@ -842,11 +845,15 @@ const doMigrations = async (conn, migrations, opinion) => {
     }
 }
 
-const fetchPotentialSynonyms = async (conn, child_spelling_no, childTaxon) => {
+const fetchPotentialSynonyms = async (conn, opinion, childTaxon) => {
     //# we need to warn about the nasty case in which the author has synonymized
     //#  genera X and Y, but we do not know the author's opinion on one or more
     //#  species placed at some point in X
+    logger.trace("fetchPotentialSynonyms")
+    logger.trace(opinion)
     if ( /genus/.test(childTaxon.taxon_rank) && !/belongs to/.test(opinion.status))	{
+        /*
+        Original select from https://github.com/paleobiodb/classic/blob/1cc4d2748c339856c9263743a4bb6c6e1372ad8b/lib/PBDB/Opinion.pm#L1445. Weird and made no sense. 
         //# get every opinion on every child ever assigned to this genus
         //# we join on o2 to make sure that they have been
         const sql = `
@@ -875,7 +882,59 @@ const fetchPotentialSynonyms = async (conn, child_spelling_no, childTaxon) => {
         const childRefs = await conn.query({ 
             namedPlaceholders: true, 
             sql: sql
-        }, {parent_spelling_no: child_spelling_no});
+        }, {parent_spelling_no: opinion.child_spelling_no});
+        return childRefs.length > 0 ? childRefs : null 
+        */
+        
+        //Below is the new improved synonym finding sql. This was created by Andrew Zaffos. He gave is sight that others may see.
+        const sql = `
+            WITH 
+            taxonomic_children AS (
+                SELECT 
+                    child_no 
+                FROM 
+                    pbdb.opinions 
+                WHERE 
+                    parent_no = :parent_no AND 
+                    status = 'belongs to'
+            ),
+            related_opinions AS (
+                SELECT 
+                    o.reference_no,
+                    o.child_no 
+                FROM 
+                    pbdb.opinions AS o 
+                    JOIN taxonomic_children ON o.child_no=taxonomic_children.child_no
+            ),
+            related_opinions_sharing_ref AS (
+                SELECT 
+                    child_no 
+                FROM 
+                    related_opinions 
+                WHERE 
+                    reference_no = :reference_no
+            )
+        
+            SELECT 
+                DISTINCT related_opinions.child_no,
+                a.taxon_name
+            FROM
+                pbdb.authorities a,
+                related_opinions 
+                LEFT JOIN related_opinions_sharing_ref 
+                    ON related_opinions.child_no = related_opinions_sharing_ref.child_no 
+            WHERE 
+                a.taxon_no = related_opinions.child_no and
+                related_opinions_sharing_ref.child_no IS NULL;       
+        `
+        const synonyms = await conn.query({ 
+            namedPlaceholders: true, 
+            sql: sql
+        }, {
+            reference_no: opinion.reference_no,
+            parent_no: opinion.child_no
+        });
+        return synonyms.length > 0 ? synonyms : null 
 
         //TODO: ref_has_opinion appears to always be YES in db. Might be unused. I'm going to skip all this logic for now and just return all the results until I find out more.
         /*
@@ -1057,7 +1116,7 @@ export const createOpinion = async (pool, opinion, user, allowDuplicate, allowMi
             //We've decided not to do this. Keeping it ghosted for now in case we change our mind.
             //await fixMassEstimates(conn, opinion.child_no);
 
-            const synonyms = await fetchPotentialSynonyms(conn, opinion.child_spelling_no, childTaxon)
+            const synonyms = await fetchPotentialSynonyms(conn, opinion, childTaxon)
 
             await conn.commit();
             //return opinion;

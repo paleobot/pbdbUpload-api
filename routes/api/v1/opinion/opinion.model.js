@@ -753,7 +753,7 @@ const gatherMigrations = async (conn, opinion, childTaxon, allowMigrations) => {
     }
     if (opinion.child_spelling_no) {
         logger.trace("child_spelling_no")
-        migrations1 = getOpinionsToMigrate(conn, opinion.child_no, $opinion.child_spelling_no, opinion.opinion_no);
+        migrations1 = getOpinionsToMigrate(conn, opinion.child_no, opinion.child_spelling_no, opinion.opinion_no);
         if (migrations1.error && childSpellingTaxon && childTaxon && childSpellingTaxon.taxon_name != childTaxon.taxon_name )	{
             const error = new Error(`${childSpellingTaxon.taxon_name} can't be an alternate spelling of ${childTaxon.taxon_name} because there is already a '${migrations1.error}' opinion linking them, so they must be biologically distinct"`);
             error.statusCode = 400

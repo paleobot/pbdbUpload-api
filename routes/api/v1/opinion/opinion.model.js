@@ -30,9 +30,9 @@ const isDuplicate = async (conn, opinion) => {
        `
     }, {
         child_no: opinion.child_no, 
-        author1last: opinion.author1last, 
+        author1last: opinion.author1last || '', 
         author2last: opinion.author2last || '', 
-        pubyr: opinion.pubyr, 
+        pubyr: opinion.pubyr || '', 
         opinion_no: opinion.opinion_no || null, 
     });
     
@@ -60,9 +60,9 @@ const isDuplicate = async (conn, opinion) => {
        `
     }, {
         child_no: opinion.child_no, 
-        author1last: opinion.author1last, 
+        author1last: opinion.author1last || '', 
         author2last: opinion.author2last || '', 
-        pubyr: opinion.pubyr, 
+        pubyr: opinion.pubyr || '', 
         opinion_no: opinion.opinion_no || null, 
     });
 

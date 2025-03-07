@@ -179,11 +179,25 @@ export const createSchema = {
 					"parent_no",
 					"status",
 					"spelling_reason",
-					"author1last",
-					"pubyr",
                 ],
 				dependentRequired: {
 					otherauthors: ["author2last"],
+					author2last: ["author1last"],
+				},
+				if: {
+					properties: {
+						ref_has_opinion: {
+							const: 'YES'
+						}
+					},
+				},
+				then: {
+				},
+				else: {
+					required: [
+						"author1last",
+						"pubyr",
+					]
 				},
 				/*
 				if: {

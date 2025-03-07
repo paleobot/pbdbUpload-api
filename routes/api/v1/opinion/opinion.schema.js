@@ -8,10 +8,12 @@ const opinionProperties = {
 	reference_no: {type: "integer"},
 	child_no: {type: "integer"},	
 	//child_spelling_no: {type: "integer"},
+	/*
 	status_old: {
 		type: "string",
 		enum: ['belongs to','recombined as','subjective synonym of','objective synonym of','homonym of','replaced by','corrected as','rank changed as','nomen dubium','nomen nudum','nomen oblitum','nomen vanum','revalidated']
 	},
+	*/
 	status: {
 		type: "string",
 		enum: ['belongs to','subjective synonym of','objective synonym of','invalid subgroup of','misspelling of','replaced by','nomen dubium','nomen nudum','nomen oblitum','nomen vanum']
@@ -183,16 +185,18 @@ export const createSchema = {
 				dependentRequired: {
 					otherauthors: ["author2last"],
 				},
+				/*
 				if: {
 					properties: {
 					  	status: { const: "misspelling of" }
 					}
-				  },
-				  then: {
+				},
+				then: {
 					required: [
 					  "child_spelling_no",
 					]
-				  },
+				},
+				*/
 			},
 			allowDuplicate: {
 				type: "boolean",
